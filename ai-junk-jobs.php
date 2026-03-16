@@ -2,14 +2,14 @@
 /**
  * Plugin Name: AI Junk Jobs
  * Description: Students explore jobs they DON'T want, rank them, explain why, and get AI-powered insights to reframe into positive requirements. Use shortcode [ai_junk_jobs].
- * Version: 1.0.0
+ * Version: 2.0.0
  * Author: MisterT9007
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 class AI_Junk_Jobs {
-    const VERSION      = '1.0.0';
+    const VERSION      = '2.0.0';
     const TABLE        = 'mfsd_ai_junk_jobs_results';
     const NONCE_ACTION = 'wp_rest';
 
@@ -18,7 +18,8 @@ class AI_Junk_Jobs {
         add_action( 'init', array( $this, 'register_assets' ) );
         add_shortcode( 'ai_junk_jobs', array( $this, 'shortcode' ) );
         add_action( 'rest_api_init', array( $this, 'register_routes' ) );
-        
+        add_action( 'admin_menu', array( $this, 'admin_menu' ) );
+
         // Force flush rewrite rules on version change
         add_action( 'plugins_loaded', array( $this, 'check_version' ) );
     }
@@ -79,6 +80,21 @@ class AI_Junk_Jobs {
 
     public function shortcode( $atts, $content = null ) {
         $handle = 'ai-junk-jobs';
+
+        // ── Ordering gate ──────────────────────────────────────────────────
+        if ( function_exists( 'mfsd_get_task_status' ) && get_option( 'ai_junk_jobs_course_management', 1 ) ) {
+            $student_id = get_current_user_id();
+            $status     = mfsd_get_task_status( $student_id, 'junk_jobs' );
+
+            if ( $status === 'locked' ) {
+                return mfsd_ordering_locked_message( 'junk_jobs' );
+            }
+            if ( $status === 'available' ) {
+                mfsd_set_task_status( $student_id, 'junk_jobs', 'in_progress' );
+            }
+        }
+        // ── End ordering gate ──────────────────────────────────────────────
+
         wp_enqueue_script( $handle );
         wp_enqueue_style( $handle );
 
@@ -161,14 +177,27 @@ class AI_Junk_Jobs {
         $analysis = $saved['analysis'];
 
         if ( $status === 'completed' && $analysis ) {
+            // Save summary ON — return stored analysis directly
             return new WP_REST_Response( array(
-                'ok' => true,
-                'status' => 'completed',
-                'jobs' => $jobs ?: array(),
-                'ranking' => $ranking ?: array(),
-                'reasons' => $reasons ?: array(),
+                'ok'       => true,
+                'status'   => 'completed',
+                'jobs'     => $jobs ?: array(),
+                'ranking'  => $ranking ?: array(),
+                'reasons'  => $reasons ?: array(),
                 'analysis' => $analysis,
                 'mbti_type' => $saved['mbti_type']
+            ), 200 );
+        } elseif ( $status === 'completed' && ! $analysis ) {
+            // Save summary OFF — task is complete but no stored analysis.
+            // Return all data plus a flag so the JS auto-regenerates the summary.
+            return new WP_REST_Response( array(
+                'ok'                 => true,
+                'status'             => 'completed',
+                'needs_regeneration' => true,
+                'jobs'               => $jobs ?: array(),
+                'ranking'            => $ranking ?: array(),
+                'reasons'            => $reasons ?: array(),
+                'mbti_type'          => $saved['mbti_type']
             ), 200 );
         } elseif ( $status === 'reasons' && ! empty( $jobs ) && ! empty( $ranking ) ) {
             return new WP_REST_Response( array(
@@ -239,6 +268,12 @@ class AI_Junk_Jobs {
                 if ( $result === false ) {
                     error_log( 'Junk Jobs DB Error (save_jobs): ' . $wpdb->last_error );
                 }
+
+                // ── Ordering: mark in_progress ─────────────────────────────
+                if ( function_exists( 'mfsd_set_task_status' ) && get_option( 'ai_junk_jobs_course_management', 1 ) ) {
+                    mfsd_set_task_status( $user_id, 'junk_jobs', 'in_progress' );
+                }
+                // ──────────────────────────────────────────────────────────
 
                 return new WP_REST_Response( array(
                     'ok' => true,
@@ -388,19 +423,21 @@ class AI_Junk_Jobs {
                     }
                 }
 
-                // Save with completed status
+                // Save — respect save_summary setting for analysis column only
+                $save_summary = get_option( 'ai_junk_jobs_save_summary', 1 );
+
                 $data = array(
-                    'user_id' => $user_id,
-                    'jobs_json' => wp_json_encode( $jobs ),
+                    'user_id'      => $user_id,
+                    'jobs_json'    => wp_json_encode( $jobs ),
                     'ranking_json' => wp_json_encode( $ranking ),
                     'reasons_json' => wp_json_encode( $reasons ),
-                    'analysis' => $analysis,
-                    'mbti_type' => $mbti_type,
-                    'status' => 'completed'
+                    'analysis'     => $save_summary ? $analysis : null,
+                    'mbti_type'    => $mbti_type,
+                    'status'       => 'completed',
                 );
-                
+
                 $format = array( '%d', '%s', '%s', '%s', '%s', '%s', '%s' );
-                
+
                 $result = $wpdb->replace( $table, $data, $format );
 
                 error_log( 'AI Junk Jobs: generate_analysis result=' . $result . ', error=' . $wpdb->last_error );
@@ -409,13 +446,24 @@ class AI_Junk_Jobs {
                     error_log( 'Junk Jobs DB Error (generate_analysis): ' . $wpdb->last_error );
                 }
 
+                // ── Ordering: mark completed after first analysis generation ──
+                // Always marks completed regardless of save_summary — the task
+                // is done. save_summary only controls whether the analysis text
+                // is stored, not whether the student has completed the activity.
+                if ( function_exists( 'mfsd_set_task_status' )
+                     && get_option( 'ai_junk_jobs_course_management', 1 )
+                     && $analysis ) {
+                    mfsd_set_task_status( $user_id, 'junk_jobs', 'completed' );
+                }
+                // ──────────────────────────────────────────────────────────
+
                 return new WP_REST_Response( array(
-                    'ok' => true,
-                    'ranking' => $ranking,
-                    'reasons' => $reasons,
-                    'analysis' => $analysis,
+                    'ok'        => true,
+                    'ranking'   => $ranking,
+                    'reasons'   => $reasons,
+                    'analysis'  => $analysis,
                     'mbti_type' => $mbti_type,
-                    'status' => 'completed'
+                    'status'    => 'completed'
                 ), 200 );
             }
 
@@ -440,6 +488,206 @@ class AI_Junk_Jobs {
         }
         return (int) get_current_user_id();
     }
+
+    // ─────────────────────────────────────────────
+    // ADMIN
+    // ─────────────────────────────────────────────
+
+    public function admin_menu() {
+        add_menu_page(
+            'Junk Jobs',
+            'Junk Jobs',
+            'manage_options',
+            'ai-junk-jobs',
+            array( $this, 'admin_page' ),
+            'dashicons-hammer',
+            31
+        );
+    }
+
+    public function admin_page() {
+        global $wpdb;
+        $table = $wpdb->prefix . self::TABLE;
+
+        // ── Handle settings save ──────────────────────────────────────────
+        if ( isset( $_POST['action'] ) && $_POST['action'] === 'save_jj_settings'
+             && check_admin_referer( 'ai_junk_jobs_settings' ) ) {
+
+            update_option( 'ai_junk_jobs_course_management', isset( $_POST['course_management'] ) ? 1 : 0 );
+            update_option( 'ai_junk_jobs_save_summary',      isset( $_POST['save_summary'] )      ? 1 : 0 );
+
+            echo '<div class="notice notice-success"><p>Settings saved.</p></div>';
+        }
+
+        // ── Handle student reset ──────────────────────────────────────────
+        if ( isset( $_POST['action'] ) && $_POST['action'] === 'reset_jj_student'
+             && check_admin_referer( 'ai_junk_jobs_reset_student' ) ) {
+
+            $reset_uid = intval( $_POST['reset_user_id'] ?? 0 );
+            if ( $reset_uid > 0 ) {
+                $wpdb->delete( $table, array( 'user_id' => $reset_uid ) );
+
+                // Clear ordering progress
+                if ( function_exists( 'mfsd_get_task_order_row' ) ) {
+                    $wpdb->delete(
+                        $wpdb->prefix . 'mfsd_task_progress',
+                        array( 'student_id' => $reset_uid, 'task_slug' => 'junk_jobs' )
+                    );
+                }
+
+                $u    = get_user_by( 'id', $reset_uid );
+                $name = $u ? $u->display_name : 'Student';
+                echo '<div class="notice notice-success"><p>' . esc_html( $name ) . '\'s Junk Jobs data and progress have been reset.</p></div>';
+            }
+        }
+
+        // ── Current settings ──────────────────────────────────────────────
+        $cm           = get_option( 'ai_junk_jobs_course_management', 1 );
+        $save_summary = get_option( 'ai_junk_jobs_save_summary', 1 );
+
+        // ── Students with data ────────────────────────────────────────────
+        $students = $wpdb->get_results(
+            "SELECT j.user_id, j.status, j.analysis,
+                    u.display_name
+             FROM   $table j
+             JOIN   {$wpdb->users} u ON u.ID = j.user_id
+             ORDER  BY u.display_name ASC"
+        );
+        ?>
+        <div class="wrap">
+            <h1>⚒️ Junk Jobs Settings</h1>
+
+            <?php if ( ! function_exists( 'mfsd_get_task_status' ) ): ?>
+                <div class="notice notice-warning">
+                    <p><strong>MFSD Ordering Utility</strong> is not active — course management features will not function until it is activated.</p>
+                </div>
+            <?php endif; ?>
+
+            <h2>Settings</h2>
+            <form method="post" action="">
+                <?php wp_nonce_field( 'ai_junk_jobs_settings' ); ?>
+                <input type="hidden" name="action" value="save_jj_settings">
+
+                <table class="form-table">
+                    <tr>
+                        <th scope="row">Course Management</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="course_management" value="1" <?php checked( $cm, 1 ); ?>>
+                                <strong>Enable course ordering &amp; completion tracking</strong>
+                            </label>
+                            <p class="description">
+                                When <strong>on</strong>: task locking and progress states are tracked via MFSD Course Manager.<br>
+                                When <strong>off</strong>: ordering logic is bypassed entirely — useful for testing.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Save AI Summary</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="save_summary" value="1" <?php checked( $save_summary, 1 ); ?>>
+                                <strong>Save AI summary to database</strong>
+                            </label>
+                            <p class="description">
+                                When <strong>on</strong>: the AI analysis is persisted to the database and the task is marked
+                                <em>completed</em> in course management (if enabled).<br>
+                                When <strong>off</strong>: the AI analysis is generated and shown to the student but
+                                <strong>not saved</strong> — they will need to regenerate on next visit. The course ordering
+                                gate will <strong>not</strong> advance (stays <em>in_progress</em>). Useful for testing prompts
+                                and AI output without affecting student records.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+
+                <p class="submit">
+                    <input type="submit" class="button button-primary" value="Save Settings">
+                </p>
+            </form>
+
+            <hr>
+
+            <h2>Student Records</h2>
+            <?php if ( empty( $students ) ): ?>
+                <p style="color:#999;">No students have started Junk Jobs yet.</p>
+            <?php else: ?>
+                <table class="wp-list-table widefat fixed striped">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Plugin Status</th>
+                            <th>Summary Saved</th>
+                            <th>Ordering Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ( $students as $s ):
+                            $order_status = '—';
+                            if ( function_exists( 'mfsd_get_task_status' ) ) {
+                                $order_status = mfsd_get_task_status( $s->user_id, 'junk_jobs' );
+                            }
+                        ?>
+                        <tr>
+                            <td><strong><?php echo esc_html( $s->display_name ); ?></strong></td>
+                            <td><?php echo esc_html( $s->status ); ?></td>
+                            <td><?php echo $s->analysis ? '✓ Yes' : '✗ No'; ?></td>
+                            <td><?php echo esc_html( $order_status ); ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+
+            <hr>
+
+            <h2>Reset Student Answers</h2>
+            <p class="description">
+                Deletes a student's Junk Jobs data and resets their course ordering progress back to <em>not started</em>.
+                Use during testing or if a student needs to redo the activity.
+            </p>
+            <?php if ( empty( $students ) ): ?>
+                <p style="color:#999;">No students have started Junk Jobs yet.</p>
+            <?php else: ?>
+            <form method="post" action=""
+                  onsubmit="return confirm('This will permanently delete all Junk Jobs data for this student and reset their progress. Are you sure?');">
+                <?php wp_nonce_field( 'ai_junk_jobs_reset_student' ); ?>
+                <input type="hidden" name="action" value="reset_jj_student">
+
+                <table class="form-table">
+                    <tr>
+                        <th scope="row"><label for="reset_user_id">Select Student</label></th>
+                        <td>
+                            <select name="reset_user_id" id="reset_user_id" style="min-width:260px;">
+                                <option value="">— select a student —</option>
+                                <?php foreach ( $students as $s ):
+                                    $order_status = '';
+                                    if ( function_exists( 'mfsd_get_task_status' ) ) {
+                                        $order_status = ' — ordering: ' . mfsd_get_task_status( $s->user_id, 'junk_jobs' );
+                                    }
+                                ?>
+                                    <option value="<?php echo esc_attr( $s->user_id ); ?>">
+                                        <?php echo esc_html( $s->display_name ); ?>
+                                        (<?php echo esc_html( $s->status . $order_status ); ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                    </tr>
+                </table>
+
+                <p class="submit">
+                    <input type="submit" class="button button-secondary"
+                           value="Reset Selected Student"
+                           style="color:#d63638; border-color:#d63638;">
+                </p>
+            </form>
+            <?php endif; ?>
+
+        </div>
+        <?php
+    }
+
 }
 
 new AI_Junk_Jobs();

@@ -66,6 +66,13 @@
           jobs = data.jobs || [];
           reasons = data.reasons || {};
           step = "results";
+        } else if (data.ok && data.status === 'completed' && data.needs_regeneration) {
+          // Save summary is OFF — task was completed before but analysis wasn't stored.
+          // Restore data and auto-regenerate the summary silently.
+          jobs    = data.jobs    || [];
+          ranking = data.ranking || [];
+          reasons = data.reasons || {};
+          step = "regenerating";
         } else if (data.ok && data.status === 'reasons' && data.jobs && data.ranking) {
           jobs = data.jobs;
           ranking = data.ranking;
@@ -653,8 +660,53 @@
       renderRank();
     } else if (step === "reasons") {
       renderReasons();
+    } else if (step === "regenerating") {
+      renderRegenerating();
     } else {
       renderResults();
+    }
+  }
+
+  // Auto-regenerates summary when save_summary is OFF and student returns.
+  // Shows a loading state, fires generate_analysis silently, then shows results.
+  async function renderRegenerating() {
+    const overlay = showLoadingOverlay("Generating your analysis...");
+
+    try {
+      const res = await fetch(cfg.restUrlSubmit, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-WP-Nonce": cfg.nonce || ""
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          jobs:    jobs,
+          ranking: ranking,
+          reasons: reasons,
+          step:    "generate_analysis"
+        })
+      });
+
+      const raw = await res.text();
+      let j = null;
+      try { j = raw ? JSON.parse(raw) : null; } catch(e) { /* ignore */ }
+
+      hideLoadingOverlay(overlay);
+
+      if (j && j.ok) {
+        resultData = j;
+        step = "results";
+        mount();
+      } else {
+        throw new Error((j && j.error) || "Generation failed");
+      }
+    } catch (err) {
+      hideLoadingOverlay(overlay);
+      console.error("Regeneration error:", err);
+      // Fall back to reasons screen so student can retry manually
+      step = "reasons";
+      mount();
     }
   }
 
