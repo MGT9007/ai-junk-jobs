@@ -2,14 +2,14 @@
 /**
  * Plugin Name: AI Junk Jobs
  * Description: Students explore jobs they DON'T want, rank them, explain why, and get AI-powered insights to reframe into positive requirements. Use shortcode [ai_junk_jobs].
- * Version: 2.0.0
+ * Version: 2.1.0
  * Author: MisterT9007
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 class AI_Junk_Jobs {
-    const VERSION      = '2.0.0';
+    const VERSION      = '2.1.0';
     const TABLE        = 'mfsd_ai_junk_jobs_results';
     const NONCE_ACTION = 'wp_rest';
 
@@ -87,7 +87,10 @@ class AI_Junk_Jobs {
             $status     = mfsd_get_task_status( $student_id, 'junk_jobs' );
 
             if ( $status === 'locked' ) {
-                return mfsd_ordering_locked_message( 'junk_jobs' );
+                if ( function_exists( 'mfsd_ordering_locked_message' ) ) {
+                    return mfsd_ordering_locked_message( 'junk_jobs' );
+                }
+                return '<p style="text-align:center;padding:40px;color:#555;">This activity is not available yet. Please complete the previous activity first.</p>';
             }
             if ( $status === 'available' ) {
                 mfsd_set_task_status( $student_id, 'junk_jobs', 'in_progress' );
