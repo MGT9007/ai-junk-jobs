@@ -2,14 +2,14 @@
 /**
  * Plugin Name: AI Junk Jobs
  * Description: Students explore jobs they DON'T want, rank them, explain why, and get AI-powered insights to reframe into positive requirements. Use shortcode [ai_junk_jobs].
- * Version: 2.1.1
+ * Version: 2.2.0
  * Author: MisterT9007
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 class AI_Junk_Jobs {
-    const VERSION      = '2.1.1';
+    const VERSION      = '2.2.0';
     const TABLE        = 'mfsd_ai_junk_jobs_results';
     const NONCE_ACTION = 'wp_rest';
 
@@ -362,16 +362,26 @@ class AI_Junk_Jobs {
                 }
 
                 // Get MBTI type from RAG assessment
-                $mbti_type = null;
-                $rag_table = $wpdb->prefix . 'mfsd_high_performance_pathway';
-                $rag_data = $wpdb->get_row( $wpdb->prepare(
-                    "SELECT mbti_type FROM $rag_table WHERE user_id = %d ORDER BY updated_at DESC LIMIT 1",
-                    $user_id
-                ), ARRAY_A );
+                //$mbti_type = null;
+                //$rag_table = $wpdb->prefix . 'mfsd_high_performance_pathway';
+                //$rag_data = $wpdb->get_row( $wpdb->prepare(
+                //    "SELECT mbti_type FROM $rag_table WHERE user_id = %d ORDER BY updated_at DESC LIMIT 1",
+                // /#   $user_id
+                //), ARRAY_A );
 
                 if ( $rag_data && ! empty( $rag_data['mbti_type'] ) ) {
                     $mbti_type = $rag_data['mbti_type'];
                 }
+
+                // Get student age from DOB — adjust meta key to match your ProfilePress field
+                $dob = get_user_meta( $user_id, 'date_of_birth', true );
+                if ( $dob ) {
+                    $age = date_diff( date_create( $dob ), date_create( 'today' ) )->y;
+                    $age_text = "a $age-year-old UK student";
+                } else {
+                    $age_text = "a UK student aged 11-14";
+                }
+
 
                 // Generate AI analysis
                 $analysis = '';
@@ -382,41 +392,42 @@ class AI_Junk_Jobs {
                             ? um_get_display_name( $user_id ) 
                             : wp_get_current_user()->display_name;
 
-                        $prompt = "You are a careers adviser using Steve's Solutions Mindset approach to help $username (a UK student aged 12-14) understand what they DON'T want in their career.\n\n";
-                        
-                        $prompt .= "$username has identified 5 jobs they'd least want to do, ranked from most undesirable to least:\n\n";
-                        
+                        $prompt = "You are SteveGPT — Steve Sallis's AI careers coach. You use Steve's Solutions Mindset to help young people reframe negatives into positives.\n\n";
+
+                        $prompt .= "You are writing for $username, $age_text. Keep your tone warm, encouraging, and easy to read — like a friendly teacher who believes in them. Use simple language. No jargon. This is about discovering what matters to them, not dwelling on what they don't want \n\n";
+
+                        $prompt .= "$username picked 5 jobs they'd least want to do, ranked from most to least undesirable:\n\n";
+
                         foreach ( $ranking as $i => $job ) {
                             $reason = isset( $reasons[$job] ) ? $reasons[$job] : '';
-                            $prompt .= ( $i + 1 ) . ") $job\n";
-                            $prompt .= "   Why they don't want this: \"$reason\"\n\n";
+                            $prompt .= ( $i + 1 ) . ") $job — \"$reason\"\n";
                         }
 
-                        $prompt .= "Your task:\n\n";
-                        
-                        $prompt .= "1) FOR EACH JOB:\n";
+                        $prompt .= "\nYour response must be 400-500 words MAXIMUM. No more. Structure it exactly like this:\n\n";
+
+                        $prompt .= "1) Start with \"Steve says:\" and a brief encouraging opener (2-3 sentences max).\n\n";
+
+                        $prompt .= "2) FOR EACH JOB (keep each one to 3-4 sentences):\n";
                         $prompt .= "   - Acknowledge their concern briefly\n";
-                        $prompt .= "   - Provide 2-3 key facts about the job (UK salary range, typical qualifications, reality check)\n";
-                        
-                        if ( $mbti_type ) {
-                            $prompt .= "   - Explain why their $mbti_type personality type means this job genuinely ISN'T a good fit (be reassuring)\n";
-                        }
-                        
-                        $prompt .= "   - REFRAME their reason into a positive requirement using Solutions Mindset:\n";
-                        $prompt .= "     * 'Doesn't pay well' → 'You need financial security and value'\n";
-                        $prompt .= "     * 'Boring' → 'You need variety, creativity, and intellectual challenge'\n";
-                        $prompt .= "     * 'People shout at you' → 'You need a respectful, supportive environment'\n";
-                        $prompt .= "     * 'Too much pressure' → 'You need reasonable work-life balance'\n";
-                        $prompt .= "   - CHALLENGE any limiting beliefs (e.g., 'I'm not good with people' becomes 'You haven't yet developed your interpersonal skills + here's how')\n\n";
-                        
-                        $prompt .= "2) SYNTHESIZE: What do these 5 junk jobs tell us about what $username DOES value in work? List 3-4 positive requirements.\n\n";
-                        
-                        $prompt .= "3) MARGINAL GAINS ACTION PLAN: Give 3 specific 1% actions $username can take THIS WEEK to reduce risk of ending up in a junk job:\n";
-                        $prompt .= "   - One related to skills/learning\n";
-                        $prompt .= "   - One related to exploration/research\n";
-                        $prompt .= "   - One related to mindset/habits\n\n";
-                        
-                        $prompt .= "Keep the tone warm, reassuring, and empowering. This is about discovering what matters to them, not dwelling on what they don't want.";
+                        $prompt .= "   - One quick Solutions Mindset reframe: turn their negative reason into a positive requirement. Examples of Steve's Solutions Mindset reframes:\n";
+                        $prompt .= "     'Doesn't pay well' becomes 'You need financial security and value'\n";
+                        $prompt .= "     'Boring and repetitive' becomes 'You need variety, creativity, and intellectual challenge'\n";
+                        $prompt .= "     'People shout at you' becomes 'You need a respectful, supportive environment'\n";
+                        $prompt .= "     'Too much pressure' becomes 'You need reasonable work-life balance'\n";
+                        $prompt .= "     'No career progression' becomes 'You need growth opportunities and advancement'\n";
+                        $prompt .= "   - One or two quick facts about the job in the UK (typical salary range, qualifications needed)\n\n";$prompt .= "   - One or two quick facts about the job in the UK (typical UK salary range, typical qualifications needed, reality check)\n\n";
+
+                        $prompt .= "3) FINISH with a short synthesis (3-4 sentences): What do these 5 choices reveal about what $username DOES value? Pull out 3-4 positive requirements from their answers.\n\n";
+
+                        $prompt .= "End with \"- Steve\"\n\n";
+
+                        $prompt .= "IMPORTANT RULES:\n";
+                        $prompt .= "- Do NOT include an action plan or weekly tasks\n";
+                        $prompt .= "- Do NOT explain MBTI or personality types\n";
+                        $prompt .= "- Do NOT use headers, markdown, bullet points, or emoji\n";
+                        $prompt .= "- Write in flowing paragraphs, not lists\n";
+                        $prompt .= "- Stay under 500 words. Brevity is key.\n";
+
 
                         $analysis = $mwai->simpleTextQuery( $prompt );
 
