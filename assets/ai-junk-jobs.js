@@ -444,14 +444,14 @@
     head.appendChild(el('h2', 'cq-title', 'Your Junk Jobs Analysis'));
     card.appendChild(head);
 
-    const rankedJobs    = (resultData && resultData.ranking)      || ranking;
-    const jobReasons    = (resultData && resultData.reasons)       || reasons;
-    const introText     = (resultData && resultData.intro_text)    || '';
-    const jobSummaries  = (resultData && resultData.job_summaries) || [];
-    const conclusion    = (resultData && resultData.conclusion)    || '';
-    const legacyAnalysis= (resultData && resultData.analysis)      || '';
+    const rankedJobs     = (resultData && resultData.ranking)       || ranking;
+    const jobReasons     = (resultData && resultData.reasons)        || reasons;
+    const introText      = (resultData && resultData.intro_text)     || '';
+    const jobSummaries   = (resultData && resultData.job_summaries)  || [];
+    const conclusion     = (resultData && resultData.conclusion)     || '';
+    const legacyAnalysis = (resultData && resultData.analysis)       || '';
 
-    // ── Intro ──────────────────────────────────────────────────────
+    // ── Intro (Steve says opener) ──────────────────────────────────
     if (introText) {
       const introBox = el('div', 'cq-analysis-opener-box');
       introBox.innerHTML = formatInline(introText);
@@ -460,10 +460,13 @@
 
     // ── Per-job blocks ─────────────────────────────────────────────
     if (jobSummaries && jobSummaries.length > 0) {
+
       rankedJobs.forEach(function (job, idx) {
+
+        // Outer block — matches the styled card from the old jobs section
         const block = el('div', 'cq-job-result-block');
 
-        // Job header — student's own input
+        // ── Job header (number + name in yellow, purple left border) ──
         const jobHeader = el('div', 'cq-job-result-header');
         const jobNum    = el('span', 'cq-job-result-num', (idx + 1) + '.');
         const jobName   = el('span', 'cq-job-result-name', job);
@@ -471,25 +474,27 @@
         jobHeader.appendChild(jobName);
         block.appendChild(jobHeader);
 
-        // Student's reason
+        // ── Student's own reason (muted italic, matches old job-item style) ──
         if (jobReasons[job]) {
           const reasonBox = el('div', 'cq-job-result-reason');
           reasonBox.textContent = jobReasons[job];
           block.appendChild(reasonBox);
         }
 
-        // AI summary for this job
+        // ── AI summary for this job (cyan left border, body text) ──
         const summary = jobSummaries[idx] || '';
         if (summary) {
-          const aiBox = el('div', 'cq-job-result-ai');
+          const aiLabel = el('div', 'cq-job-result-ai-label', 'Steve says:');
+          const aiBox   = el('div', 'cq-job-result-ai');
           aiBox.innerHTML = formatInline(summary);
+          block.appendChild(aiLabel);
           block.appendChild(aiBox);
         }
 
         card.appendChild(block);
       });
 
-      // ── Conclusion ───────────────────────────────────────────────
+      // ── Conclusion (inside card, above buttons) ────────────────────
       if (conclusion) {
         const concBox = el('div', 'cq-conclusion-box');
         concBox.innerHTML = formatInline(conclusion);
@@ -497,7 +502,6 @@
       }
 
     } else if (legacyAnalysis) {
-      // Fallback: legacy single-analysis format
       const analysisBox  = el('div', 'cq-analysis');
       const analysisText = el('div', 'cq-analysis-text');
       analysisText.innerHTML = formatAnalysis(legacyAnalysis);
@@ -505,15 +509,15 @@
       card.appendChild(analysisBox);
     }
 
-    // ── Navigation buttons ─────────────────────────────────────────
-    const navWrap  = el('div', 'cq-nav-actions');
+    // ── Navigation buttons — inside card, always last ──────────────
+    const navWrap   = el('div', 'cq-nav-actions');
     const badgesBtn = document.createElement('a');
-    badgesBtn.className = 'cq-btn cq-btn-back';
-    badgesBtn.href      = cfg.urlBadges || 'https://mfsd.me/badges/';
+    badgesBtn.className   = 'cq-btn cq-btn-back';
+    badgesBtn.href        = cfg.urlBadges || 'https://mfsd.me/badges/';
     badgesBtn.textContent = 'View My Badges';
     const courseBtn = document.createElement('a');
-    courseBtn.className = 'cq-btn';
-    courseBtn.href      = cfg.urlCourse || 'https://mfsd.me/about/parent-portal-home/?course_id=1';
+    courseBtn.className   = 'cq-btn';
+    courseBtn.href        = cfg.urlCourse || 'https://mfsd.me/about/parent-portal-home/?course_id=1';
     courseBtn.textContent = 'Return to Course';
     navWrap.appendChild(badgesBtn);
     navWrap.appendChild(courseBtn);

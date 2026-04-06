@@ -1,29 +1,29 @@
 @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700&family=Nunito:wght@400;600&display=swap');
 
-/* ── Root variables (mirror style guide CSS vars) ─────────────────── */
+/* ── Root variables ──────────────────────────────────────────────── */
 .cq-wrap {
-  --bg-page:       #0A0E1A;
-  --bg-card:       #0F1628;
-  --accent:        #00D4FF;
-  --accent-hover:  #33DDFF;
-  --accent-2:      #9333EA;
-  --accent-2-hover:#7C3AED;
-  --accent-3:      #FFD000;
-  --text:          #E8EAF0;
-  --text-light:    #F5F5F5;
-  --text-muted:    #888888;
-  --border:        rgba(0, 212, 255, 0.38);
-  --border-dim:    rgba(0, 212, 255, 0.15);
-  --rule:          rgba(221, 221, 221, 0.19);
-  --nav-active:    #1E3A5F;
-  --font-heading:  'Exo 2', sans-serif;
-  --font-body:     'Nunito', sans-serif;
-  --glow-cyan:     0 0 12px rgba(0, 212, 255, 0.2);
-  --glow-cyan-md:  0 0 8px rgba(0, 212, 255, 0.25);
-  --glow-purple:   0 0 12px rgba(147, 51, 234, 0.4);
+  --bg-page:        #0A0E1A;
+  --bg-card:        #0F1628;
+  --bg-inner:       #0A0E1A;
+  --accent:         #00D4FF;
+  --accent-hover:   #33DDFF;
+  --accent-2:       #9333EA;
+  --accent-2-hover: #7C3AED;
+  --accent-3:       #FFD000;
+  --text:           #E8EAF0;
+  --text-light:     #F5F5F5;
+  --text-muted:     #888888;
+  --border:         rgba(0, 212, 255, 0.38);
+  --border-dim:     rgba(0, 212, 255, 0.15);
+  --rule:           rgba(221, 221, 221, 0.19);
+  --font-heading:   'Exo 2', sans-serif;
+  --font-body:      'Nunito', sans-serif;
+  --glow-cyan:      0 0 12px rgba(0, 212, 255, 0.2);
+  --glow-cyan-md:   0 0 8px rgba(0, 212, 255, 0.25);
+  --glow-purple:    0 0 12px rgba(147, 51, 234, 0.4);
 }
 
-/* ── Layout ─────────────────────────────────────────────────────────── */
+/* ── Layout ──────────────────────────────────────────────────────── */
 .cq-wrap {
   font-family: var(--font-body);
   max-width: 860px;
@@ -34,7 +34,6 @@
   border-radius: 12px;
 }
 
-/* ── Card ───────────────────────────────────────────────────────────── */
 .cq-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -44,7 +43,7 @@
   box-shadow: var(--glow-cyan);
 }
 
-/* ── Header ─────────────────────────────────────────────────────────── */
+/* ── Header ──────────────────────────────────────────────────────── */
 .cq-header {
   display: flex;
   justify-content: space-between;
@@ -72,22 +71,20 @@
   line-height: 1.5;
 }
 
-/* ── List / drag items ───────────────────────────────────────────────── */
+/* ── Drag list ───────────────────────────────────────────────────── */
 .cq-list {
   list-style: none;
   margin: 12px 0 0;
   padding: 0;
 }
 
-.cq-list-small .cq-item {
-  cursor: default;
-}
+.cq-list-small .cq-item { cursor: default; }
 
 .cq-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #0A0E1A;
+  background: var(--bg-inner);
   border: 1px solid var(--border-dim);
   border-radius: 10px;
   padding: 10px 14px;
@@ -108,9 +105,7 @@
   border-color: var(--accent);
 }
 
-.cq-item-static {
-  cursor: default;
-}
+.cq-item-static { cursor: default; }
 
 .cq-handle {
   font-weight: 700;
@@ -141,7 +136,6 @@
   letter-spacing: 0.03em;
 }
 
-/* ── Ghost drop target ───────────────────────────────────────────────── */
 .cq-ghost {
   height: 44px;
   border: 2px dashed var(--border);
@@ -150,7 +144,7 @@
   background: rgba(0, 212, 255, 0.04);
 }
 
-/* ── Actions row ─────────────────────────────────────────────────────── */
+/* ── Actions row ─────────────────────────────────────────────────── */
 .cq-actions {
   display: flex;
   justify-content: flex-end;
@@ -158,7 +152,7 @@
   margin-top: 18px;
 }
 
-/* ── Buttons ─────────────────────────────────────────────────────────── */
+/* ── Buttons ─────────────────────────────────────────────────────── */
 .cq-btn {
   font-family: var(--font-heading);
   font-weight: 700;
@@ -169,13 +163,11 @@
   padding: 10px 18px;
   cursor: pointer;
   transition: background 150ms ease, box-shadow 150ms ease, transform 100ms ease;
-}
-
-/* Primary CTA — neon purple */
-.cq-btn {
   background: var(--accent-2);
   border: 1px solid var(--accent-2);
   color: var(--text-light);
+  text-decoration: none;
+  display: inline-block;
 }
 
 .cq-btn:hover:not([disabled]) {
@@ -194,7 +186,6 @@
   cursor: not-allowed;
 }
 
-/* Back / secondary — outline cyan */
 .cq-btn-back {
   background: transparent !important;
   border: 2px solid var(--accent) !important;
@@ -206,7 +197,7 @@
   box-shadow: var(--glow-cyan-md);
 }
 
-/* ── Input screen ────────────────────────────────────────────────────── */
+/* ── Input screen ────────────────────────────────────────────────── */
 .cq-inputs-vertical {
   display: flex;
   flex-direction: column;
@@ -230,7 +221,7 @@
   padding: 9px 12px;
   border-radius: 8px;
   border: 1px solid var(--border-dim);
-  background: #0A0E1A;
+  background: var(--bg-inner);
   color: var(--text);
   font-family: var(--font-body);
   font-size: 14px;
@@ -238,9 +229,7 @@
   box-sizing: border-box;
 }
 
-.cq-input-row input::placeholder {
-  color: var(--text-muted);
-}
+.cq-input-row input::placeholder { color: var(--text-muted); }
 
 .cq-input-row input:focus {
   outline: none;
@@ -248,15 +237,13 @@
   box-shadow: var(--glow-cyan-md);
 }
 
-/* ── Reasons screen ──────────────────────────────────────────────────── */
-.cq-reasons-wrap {
-  margin-top: 16px;
-}
+/* ── Reasons screen ──────────────────────────────────────────────── */
+.cq-reasons-wrap { margin-top: 16px; }
 
 .cq-reason-card {
   margin-bottom: 16px;
   padding: 14px;
-  background: #0A0E1A;
+  background: var(--bg-inner);
   border: 1px solid var(--border-dim);
   border-radius: 10px;
   transition: border-color 150ms ease;
@@ -290,9 +277,7 @@
   transition: border-color 150ms ease;
 }
 
-.cq-reason-card textarea::placeholder {
-  color: var(--text-muted);
-}
+.cq-reason-card textarea::placeholder { color: var(--text-muted); }
 
 .cq-reason-card textarea:focus {
   outline: none;
@@ -308,7 +293,7 @@
   letter-spacing: 0.02em;
 }
 
-/* ── MBTI note ───────────────────────────────────────────────────────── */
+/* ── MBTI note ───────────────────────────────────────────────────── */
 .cq-mbti-note {
   background: rgba(147, 51, 234, 0.12);
   border-left: 3px solid var(--accent-2);
@@ -321,7 +306,7 @@
   font-weight: 600;
 }
 
-/* ── Loading overlay ─────────────────────────────────────────────────── */
+/* ── Loading overlay ─────────────────────────────────────────────── */
 .cq-loading-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -358,10 +343,10 @@
   margin-top: 20px;
 }
 
-/* ── Results / analysis ───────────────────────────────────────────────── */
+/* ── Results — legacy analysis box ──────────────────────────────── */
 .cq-analysis {
   margin-top: 16px;
-  background: #0A0E1A;
+  background: var(--bg-inner);
   border: 1px solid var(--border-dim);
   border-radius: 10px;
   padding: 18px;
@@ -375,458 +360,169 @@
   color: var(--text);
 }
 
-/* ── Jobs section in results ─────────────────────────────────────────── */
-.cq-jobs-section {
-  margin: 16px 0;
-  padding: 14px;
-  background: #0A0E1A;
-  border: 1px solid var(--border-dim);
-  border-radius: 10px;
+/* ── Results — structured layout (v4.0.0) ────────────────────────── */
+
+/* Steve's opener */
+.cq-analysis-opener-box {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--text);
+  padding: 14px 16px;
+  background: rgba(255, 208, 0, 0.07);
+  border-left: 3px solid var(--accent-3);
+  border-radius: 0 8px 8px 0;
+  margin: 0 0 20px;
+  line-height: 1.7;
 }
 
-.cq-jobs-section h3 {
-  margin: 0 0 12px;
+.cq-analysis-opener-box strong {
+  font-family: var(--font-heading);
+  color: var(--accent-3);
+}
+
+/* Individual job block */
+.cq-job-result-block {
+  margin-bottom: 16px;
+  background: var(--bg-card);
+  border-radius: 10px;
+  border-left: 3px solid var(--accent-2);
+  overflow: hidden;
+}
+
+/* Job number + name */
+.cq-job-result-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(147, 51, 234, 0.1);
+  border-bottom: 1px solid var(--border-dim);
+}
+
+.cq-job-result-num {
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  min-width: 20px;
+}
+
+.cq-job-result-name {
   font-family: var(--font-heading);
   font-size: 15px;
   font-weight: 700;
-  color: var(--accent);
+  color: var(--accent-3);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
-.cq-job-item {
-  margin-bottom: 10px;
-  padding: 10px 12px;
-  background: var(--bg-card);
-  border-radius: 8px;
-  border-left: 3px solid var(--accent-2);
-}
-
-.cq-job-item div:first-child {
-  font-family: var(--font-heading);
-  font-weight: 700;
-  font-size: 14px;
-  color: var(--text-light);
-  margin-bottom: 4px;
-}
-
-.cq-job-item div:last-child {
+/* Student's own reason */
+.cq-job-result-reason {
+  padding: 10px 14px;
   font-family: var(--font-body);
   font-size: 13px;
   color: var(--text-muted);
   font-style: italic;
+  border-bottom: 1px solid var(--border-dim);
+  line-height: 1.6;
+  background: var(--bg-inner);
 }
 
-/* ── Legacy compat ────────────────────────────────────────────────────── */
-.cq-results {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+/* "STEVE SAYS:" micro-label */
+.cq-job-result-ai-label {
+  padding: 8px 14px 2px;
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent-2);
+  background: var(--bg-card);
+}
+
+/* AI summary body */
+.cq-job-result-ai {
+  padding: 4px 14px 14px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.75;
+  background: var(--bg-card);
+}
+
+/* Conclusion / synthesis */
+.cq-conclusion-box {
+  margin-top: 20px;
+  padding: 16px 18px;
+  background: rgba(0, 212, 255, 0.05);
+  border: 1px solid var(--border-dim);
+  border-top: 2px solid var(--accent);
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.8;
+}
+
+/* Navigation buttons */
+.cq-nav-actions {
+  display: flex;
   gap: 12px;
-  margin-top: 12px;
+  justify-content: flex-start;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--rule);
+  flex-wrap: wrap;
 }
 
-.cq-chip {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 12px;
-  background: var(--bg-card);
-  color: var(--text);
-}
+.cq-nav-actions a { text-decoration: none; }
 
-.cq-muted {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.cq-inputs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700&family=Nunito:wght@400;600&display=swap');
-
-/* ── Root variables (mirror style guide CSS vars) ─────────────────── */
-.cq-wrap {
-  --bg-page:       #0A0E1A;
-  --bg-card:       #0F1628;
-  --accent:        #00D4FF;
-  --accent-hover:  #33DDFF;
-  --accent-2:      #9333EA;
-  --accent-2-hover:#7C3AED;
-  --accent-3:      #FFD000;
-  --text:          #E8EAF0;
-  --text-light:    #F5F5F5;
-  --text-muted:    #888888;
-  --border:        rgba(0, 212, 255, 0.38);
-  --border-dim:    rgba(0, 212, 255, 0.15);
-  --rule:          rgba(221, 221, 221, 0.19);
-  --nav-active:    #1E3A5F;
-  --font-heading:  'Exo 2', sans-serif;
-  --font-body:     'Nunito', sans-serif;
-  --glow-cyan:     0 0 12px rgba(0, 212, 255, 0.2);
-  --glow-cyan-md:  0 0 8px rgba(0, 212, 255, 0.25);
-  --glow-purple:   0 0 12px rgba(147, 51, 234, 0.4);
-}
-
-/* ── Layout ─────────────────────────────────────────────────────────── */
-.cq-wrap {
-  font-family: var(--font-body);
-  max-width: 860px;
-  margin: 0 auto;
-  padding: 16px;
-  background: var(--bg-page);
-  color: var(--text);
-  border-radius: 12px;
-}
-
-/* ── Card ───────────────────────────────────────────────────────────── */
-.cq-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px 22px;
-  margin: 12px 0;
-  box-shadow: var(--glow-cyan);
-}
-
-/* ── Header ─────────────────────────────────────────────────────────── */
-.cq-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin: 0 0 10px;
-  border-bottom: 1px solid var(--rule);
-  padding-bottom: 10px;
-}
-
-.cq-title {
-  font-family: var(--font-heading);
-  font-size: 22px;
+/* Bold highlights from AI */
+.cq-analysis-highlight {
+  color: var(--accent-3);
   font-weight: 700;
-  margin: 0;
-  color: var(--accent);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-style: normal;
 }
 
-.cq-sub {
-  font-family: var(--font-body);
-  color: var(--text-muted);
-  margin: 0 0 10px;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-/* ── List / drag items ───────────────────────────────────────────────── */
-.cq-list {
-  list-style: none;
-  margin: 12px 0 0;
-  padding: 0;
-}
-
-.cq-list-small .cq-item {
-  cursor: default;
-}
-
-.cq-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: #0A0E1A;
-  border: 1px solid var(--border-dim);
-  border-radius: 10px;
-  padding: 10px 14px;
-  margin: 8px 0;
-  cursor: grab;
-  touch-action: none;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
-  color: var(--text);
-}
-
-.cq-item:hover {
-  border-color: var(--accent);
-  box-shadow: var(--glow-cyan-md);
-}
-
-.cq-item.dragging {
-  opacity: 0.55;
-  border-color: var(--accent);
-}
-
-.cq-item-static {
-  cursor: default;
-}
-
-.cq-handle {
-  font-weight: 700;
-  opacity: 0.5;
-  cursor: grab;
-  color: var(--accent);
-  font-size: 16px;
-}
-
-.cq-label {
-  flex: 1;
-  font-family: var(--font-body);
-  font-size: 15px;
-  color: var(--text);
-}
-
-.cq-rankpill {
-  min-width: 64px;
-  text-align: center;
-  font-family: var(--font-heading);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(0, 212, 255, 0.12);
-  border: 1px solid var(--border);
-  color: var(--accent);
-  letter-spacing: 0.03em;
-}
-
-/* ── Ghost drop target ───────────────────────────────────────────────── */
-.cq-ghost {
-  height: 44px;
-  border: 2px dashed var(--border);
-  border-radius: 10px;
-  margin: 8px 0;
-  background: rgba(0, 212, 255, 0.04);
-}
-
-/* ── Actions row ─────────────────────────────────────────────────────── */
-.cq-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 18px;
-}
-
-/* ── Buttons ─────────────────────────────────────────────────────────── */
-.cq-btn {
-  font-family: var(--font-heading);
-  font-weight: 700;
-  font-size: 14px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  border-radius: 10px;
-  padding: 10px 18px;
-  cursor: pointer;
-  transition: background 150ms ease, box-shadow 150ms ease, transform 100ms ease;
-}
-
-/* Primary CTA — neon purple */
-.cq-btn {
-  background: var(--accent-2);
-  border: 1px solid var(--accent-2);
-  color: var(--text-light);
-}
-
-.cq-btn:hover:not([disabled]) {
-  background: var(--accent-2-hover);
-  box-shadow: var(--glow-purple);
-}
-
-.cq-btn:active:not([disabled]) {
-  transform: scale(0.97);
-}
-
-.cq-btn[disabled] {
-  background: #1E2440;
-  border-color: #333455;
-  color: #555566;
-  cursor: not-allowed;
-}
-
-/* Back / secondary — outline cyan */
-.cq-btn-back {
-  background: transparent !important;
-  border: 2px solid var(--accent) !important;
-  color: var(--accent) !important;
-}
-
-.cq-btn-back:hover:not([disabled]) {
-  background: rgba(0, 212, 255, 0.12) !important;
-  box-shadow: var(--glow-cyan-md);
-}
-
-/* ── Input screen ────────────────────────────────────────────────────── */
-.cq-inputs-vertical {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 14px;
-}
-
-.cq-input-row label {
-  display: block;
-  font-family: var(--font-heading);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--accent);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  margin-bottom: 4px;
-}
-
-.cq-input-row input {
-  width: 100%;
-  padding: 9px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border-dim);
-  background: #0A0E1A;
-  color: var(--text);
-  font-family: var(--font-body);
-  font-size: 14px;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
-  box-sizing: border-box;
-}
-
-.cq-input-row input::placeholder {
-  color: var(--text-muted);
-}
-
-.cq-input-row input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: var(--glow-cyan-md);
-}
-
-/* ── Reasons screen ──────────────────────────────────────────────────── */
-.cq-reasons-wrap {
-  margin-top: 16px;
-}
-
-.cq-reason-card {
-  margin-bottom: 16px;
-  padding: 14px;
-  background: #0A0E1A;
-  border: 1px solid var(--border-dim);
-  border-radius: 10px;
-  transition: border-color 150ms ease;
-}
-
-.cq-reason-card:focus-within {
-  border-color: var(--accent);
-  box-shadow: var(--glow-cyan-md);
-}
-
-.cq-reason-card h4 {
-  margin: 0 0 8px;
+/* ── Legacy analysis paragraph styles ────────────────────────────── */
+.cq-analysis-opener {
   font-family: var(--font-heading);
   font-size: 15px;
   font-weight: 700;
   color: var(--accent-3);
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  background: rgba(255, 208, 0, 0.07);
+  border-left: 3px solid var(--accent-3);
+  border-radius: 0 8px 8px 0;
+  line-height: 1.6;
 }
 
-.cq-reason-card textarea {
-  width: 100%;
-  min-height: 80px;
-  padding: 9px 12px;
-  border: 1px solid var(--border-dim);
-  border-radius: 6px;
-  background: var(--bg-card);
-  color: var(--text);
+.cq-analysis-para {
   font-family: var(--font-body);
   font-size: 14px;
-  resize: vertical;
-  box-sizing: border-box;
-  transition: border-color 150ms ease;
+  color: var(--text);
+  line-height: 1.75;
+  margin: 0 0 14px;
+  padding-left: 12px;
+  border-left: 2px solid var(--border-dim);
 }
 
-.cq-reason-card textarea::placeholder {
-  color: var(--text-muted);
-}
-
-.cq-reason-card textarea:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-
-.cq-word-count {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 5px;
-  text-align: right;
+.cq-analysis-signoff {
   font-family: var(--font-heading);
-  letter-spacing: 0.02em;
-}
-
-/* ── MBTI note ───────────────────────────────────────────────────────── */
-.cq-mbti-note {
-  background: rgba(147, 51, 234, 0.12);
-  border-left: 3px solid var(--accent-2);
-  padding: 12px 14px;
-  border-radius: 0 6px 6px 0;
-  margin: 14px 0;
-  font-family: var(--font-body);
   font-size: 14px;
-  color: #C4A5F7;
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 16px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
 }
 
-/* ── Loading overlay ─────────────────────────────────────────────────── */
-.cq-loading-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(10, 14, 26, 0.88);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-}
-
-.cq-spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid rgba(0, 212, 255, 0.15);
-  border-top: 4px solid var(--accent);
-  border-radius: 50%;
-  animation: cq-spin 0.9s linear infinite;
-  box-shadow: 0 0 16px rgba(0, 212, 255, 0.3);
-}
-
-@keyframes cq-spin {
-  0%   { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.cq-loading-text {
-  color: var(--text);
-  font-family: var(--font-heading);
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  margin-top: 20px;
-}
-
-/* ── Results / analysis ───────────────────────────────────────────────── */
-.cq-analysis {
-  margin-top: 16px;
-  background: #0A0E1A;
-  border: 1px solid var(--border-dim);
-  border-radius: 10px;
-  padding: 18px;
-}
-
-.cq-analysis-text {
-  white-space: pre-wrap;
-  line-height: 1.7;
-  font-family: var(--font-body);
-  font-size: 14px;
-  color: var(--text);
-}
-
-/* ── Jobs section in results ─────────────────────────────────────────── */
+/* ── Jobs section (legacy results) ──────────────────────────────── */
 .cq-jobs-section {
   margin: 16px 0;
   padding: 14px;
-  background: #0A0E1A;
+  background: var(--bg-inner);
   border: 1px solid var(--border-dim);
   border-radius: 10px;
 }
@@ -864,7 +560,7 @@
   font-style: italic;
 }
 
-/* ── Legacy compat ────────────────────────────────────────────────────── */
+/* ── Legacy compat ───────────────────────────────────────────────── */
 .cq-results {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
