@@ -1,35 +1,78 @@
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700&family=Nunito:wght@400;600&display=swap');
+
+/* ── Root variables (mirror style guide CSS vars) ─────────────────── */
 .cq-wrap {
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  --bg-page:       #0A0E1A;
+  --bg-card:       #0F1628;
+  --accent:        #00D4FF;
+  --accent-hover:  #33DDFF;
+  --accent-2:      #9333EA;
+  --accent-2-hover:#7C3AED;
+  --accent-3:      #FFD000;
+  --text:          #E8EAF0;
+  --text-light:    #F5F5F5;
+  --text-muted:    #888888;
+  --border:        rgba(0, 212, 255, 0.38);
+  --border-dim:    rgba(0, 212, 255, 0.15);
+  --rule:          rgba(221, 221, 221, 0.19);
+  --nav-active:    #1E3A5F;
+  --font-heading:  'Exo 2', sans-serif;
+  --font-body:     'Nunito', sans-serif;
+  --glow-cyan:     0 0 12px rgba(0, 212, 255, 0.2);
+  --glow-cyan-md:  0 0 8px rgba(0, 212, 255, 0.25);
+  --glow-purple:   0 0 12px rgba(147, 51, 234, 0.4);
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────── */
+.cq-wrap {
+  font-family: var(--font-body);
   max-width: 860px;
   margin: 0 auto;
   padding: 16px;
+  background: var(--bg-page);
+  color: var(--text);
+  border-radius: 12px;
 }
 
+/* ── Card ───────────────────────────────────────────────────────────── */
 .cq-card {
-  border: 1px solid #e5e5e5;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 14px;
-  padding: 16px 18px;
+  padding: 20px 22px;
   margin: 12px 0;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  box-shadow: var(--glow-cyan);
 }
 
+/* ── Header ─────────────────────────────────────────────────────────── */
 .cq-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin: 0 0 8px;
+  margin: 0 0 10px;
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 10px;
 }
 
 .cq-title {
-  font-size: 20px;
+  font-family: var(--font-heading);
+  font-size: 22px;
+  font-weight: 700;
   margin: 0;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .cq-sub {
-  color: #666;
-  margin: 0 0 8px;
+  font-family: var(--font-body);
+  color: var(--text-muted);
+  margin: 0 0 10px;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
+/* ── List / drag items ───────────────────────────────────────────────── */
 .cq-list {
   list-style: none;
   margin: 12px 0 0;
@@ -44,17 +87,25 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid #ddd;
-  border-radius: 12px;
-  padding: 10px 12px;
+  background: #0A0E1A;
+  border: 1px solid var(--border-dim);
+  border-radius: 10px;
+  padding: 10px 14px;
   margin: 8px 0;
-  background: #fff;
   cursor: grab;
   touch-action: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  color: var(--text);
+}
+
+.cq-item:hover {
+  border-color: var(--accent);
+  box-shadow: var(--glow-cyan-md);
 }
 
 .cq-item.dragging {
-  opacity: 0.6;
+  opacity: 0.55;
+  border-color: var(--accent);
 }
 
 .cq-item-static {
@@ -63,129 +114,218 @@
 
 .cq-handle {
   font-weight: 700;
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: grab;
+  color: var(--accent);
+  font-size: 16px;
 }
 
 .cq-label {
   flex: 1;
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--text);
 }
 
 .cq-rankpill {
-  min-width: 60px;
+  min-width: 64px;
   text-align: center;
-  font-size: 12px;
-  padding: 4px 8px;
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
   border-radius: 999px;
-  background: #f2f2f2;
+  background: rgba(0, 212, 255, 0.12);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  letter-spacing: 0.03em;
 }
 
+/* ── Ghost drop target ───────────────────────────────────────────────── */
+.cq-ghost {
+  height: 44px;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  margin: 8px 0;
+  background: rgba(0, 212, 255, 0.04);
+}
+
+/* ── Actions row ─────────────────────────────────────────────────────── */
 .cq-actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 16px;
+  margin-top: 18px;
 }
 
+/* ── Buttons ─────────────────────────────────────────────────────────── */
 .cq-btn {
-  border: 1px solid #111;
-  background: #111;
-  color: #fff;
-  border-radius: 10px;
-  padding: 10px 14px;
-  cursor: pointer;
+  font-family: var(--font-heading);
+  font-weight: 700;
   font-size: 14px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 10px;
+  padding: 10px 18px;
+  cursor: pointer;
+  transition: background 150ms ease, box-shadow 150ms ease, transform 100ms ease;
+}
+
+/* Primary CTA — neon purple */
+.cq-btn {
+  background: var(--accent-2);
+  border: 1px solid var(--accent-2);
+  color: var(--text-light);
+}
+
+.cq-btn:hover:not([disabled]) {
+  background: var(--accent-2-hover);
+  box-shadow: var(--glow-purple);
+}
+
+.cq-btn:active:not([disabled]) {
+  transform: scale(0.97);
 }
 
 .cq-btn[disabled] {
-  opacity: 0.5;
+  background: #1E2440;
+  border-color: #333455;
+  color: #555566;
   cursor: not-allowed;
 }
 
-.cq-ghost {
-  height: 44px;
-  border: 2px dashed #ccc;
-  border-radius: 12px;
-  margin: 8px 0;
+/* Back / secondary — outline cyan */
+.cq-btn-back {
+  background: transparent !important;
+  border: 2px solid var(--accent) !important;
+  color: var(--accent) !important;
 }
 
-/* Input screen */
+.cq-btn-back:hover:not([disabled]) {
+  background: rgba(0, 212, 255, 0.12) !important;
+  box-shadow: var(--glow-cyan-md);
+}
+
+/* ── Input screen ────────────────────────────────────────────────────── */
 .cq-inputs-vertical {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-top: 12px;
+  margin-top: 14px;
 }
 
 .cq-input-row label {
   display: block;
-  font-size: 14px;
-  margin-bottom: 2px;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
 }
 
 .cq-input-row input {
   width: 100%;
-  padding: 6px 8px;
+  padding: 9px 12px;
   border-radius: 8px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-dim);
+  background: #0A0E1A;
+  color: var(--text);
+  font-family: var(--font-body);
   font-size: 14px;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  box-sizing: border-box;
 }
 
-/* Reasons screen */
+.cq-input-row input::placeholder {
+  color: var(--text-muted);
+}
+
+.cq-input-row input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--glow-cyan-md);
+}
+
+/* ── Reasons screen ──────────────────────────────────────────────────── */
 .cq-reasons-wrap {
   margin-top: 16px;
 }
 
 .cq-reason-card {
   margin-bottom: 16px;
-  padding: 12px;
-  background: #f9f9f9;
-  border-radius: 8px;
+  padding: 14px;
+  background: #0A0E1A;
+  border: 1px solid var(--border-dim);
+  border-radius: 10px;
+  transition: border-color 150ms ease;
+}
+
+.cq-reason-card:focus-within {
+  border-color: var(--accent);
+  box-shadow: var(--glow-cyan-md);
 }
 
 .cq-reason-card h4 {
   margin: 0 0 8px;
-  font-size: 16px;
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent-3);
 }
 
 .cq-reason-card textarea {
   width: 100%;
   min-height: 80px;
-  padding: 8px;
-  border: 1px solid #ddd;
+  padding: 9px 12px;
+  border: 1px solid var(--border-dim);
   border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-family: var(--font-body);
   font-size: 14px;
-  font-family: inherit;
   resize: vertical;
+  box-sizing: border-box;
+  transition: border-color 150ms ease;
+}
+
+.cq-reason-card textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.cq-reason-card textarea:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .cq-word-count {
   font-size: 12px;
-  color: #666;
-  margin-top: 4px;
+  color: var(--text-muted);
+  margin-top: 5px;
   text-align: right;
+  font-family: var(--font-heading);
+  letter-spacing: 0.02em;
 }
 
-/* MBTI personality note */
+/* ── MBTI note ───────────────────────────────────────────────────────── */
 .cq-mbti-note {
-  background: #fff3cd;
-  border-left: 4px solid #ffc107;
+  background: rgba(147, 51, 234, 0.12);
+  border-left: 3px solid var(--accent-2);
   padding: 12px 14px;
-  border-radius: 6px;
-  margin: 12px 0;
+  border-radius: 0 6px 6px 0;
+  margin: 14px 0;
+  font-family: var(--font-body);
   font-size: 14px;
-  color: #856404;
-  font-weight: 500;
+  color: #C4A5F7;
+  font-weight: 600;
 }
 
-/* Loading overlay - Apple style spinner */
+/* ── Loading overlay ─────────────────────────────────────────────────── */
 .cq-loading-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 14, 26, 0.88);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -196,88 +336,105 @@
 .cq-spinner {
   width: 50px;
   height: 50px;
-  border: 5px solid #f3f3f3;
-  border-top: 5px solid #3498db;
+  border: 4px solid rgba(0, 212, 255, 0.15);
+  border-top: 4px solid var(--accent);
   border-radius: 50%;
-  animation: cq-spin 1s linear infinite;
+  animation: cq-spin 0.9s linear infinite;
+  box-shadow: 0 0 16px rgba(0, 212, 255, 0.3);
 }
 
 @keyframes cq-spin {
-  0% { transform: rotate(0deg); }
+  0%   { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
 
 .cq-loading-text {
-  color: white;
-  font-size: 18px;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   margin-top: 20px;
-  font-weight: 500;
 }
 
-/* Results & AI analysis */
+/* ── Results / analysis ───────────────────────────────────────────────── */
 .cq-analysis {
-  margin-top: 14px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 16px;
+  margin-top: 16px;
+  background: #0A0E1A;
+  border: 1px solid var(--border-dim);
+  border-radius: 10px;
+  padding: 18px;
 }
 
 .cq-analysis-text {
   white-space: pre-wrap;
-  line-height: 1.6;
+  line-height: 1.7;
+  font-family: var(--font-body);
   font-size: 14px;
-  color: #333;
+  color: var(--text);
 }
 
-/* Jobs section in results */
+/* ── Jobs section in results ─────────────────────────────────────────── */
 .cq-jobs-section {
   margin: 16px 0;
-  padding: 12px;
-  background: #f9f9f9;
-  border-radius: 8px;
+  padding: 14px;
+  background: #0A0E1A;
+  border: 1px solid var(--border-dim);
+  border-radius: 10px;
 }
 
 .cq-jobs-section h3 {
   margin: 0 0 12px;
-  font-size: 16px;
+  font-family: var(--font-heading);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .cq-job-item {
   margin-bottom: 10px;
-  padding: 8px;
-  background: #fff;
-  border-radius: 6px;
-  border-left: 3px solid #e74c3c;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border-radius: 8px;
+  border-left: 3px solid var(--accent-2);
 }
 
 .cq-job-item div:first-child {
-  font-weight: 600;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-light);
   margin-bottom: 4px;
 }
 
 .cq-job-item div:last-child {
-  font-size: 14px;
-  color: #666;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-muted);
   font-style: italic;
 }
 
-/* Old compatibility styles */
+/* ── Legacy compat ────────────────────────────────────────────────────── */
 .cq-results {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px,1fr));
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 12px;
   margin-top: 12px;
 }
 
 .cq-chip {
-  border: 1px solid #e5e5e5;
-  border-radius: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
   padding: 10px 12px;
+  background: var(--bg-card);
+  color: var(--text);
 }
 
 .cq-muted {
-  color: #666;
+  color: var(--text-muted);
   font-size: 13px;
 }
 

@@ -2,14 +2,14 @@
 /**
  * Plugin Name: AI Junk Jobs
  * Description: Students explore jobs they DON'T want, rank them, explain why, and get AI-powered insights to reframe into positive requirements. Use shortcode [ai_junk_jobs].
- * Version: 2.2.0
+ * Version: 3.0.0
  * Author: MisterT9007
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 class AI_Junk_Jobs {
-    const VERSION      = '2.2.0';
+    const VERSION      = '3.0.0';
     const TABLE        = 'mfsd_ai_junk_jobs_results';
     const NONCE_ACTION = 'wp_rest';
 
