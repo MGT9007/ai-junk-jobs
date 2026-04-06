@@ -5,6 +5,8 @@
 
   console.log('AI Junk Jobs Config:', cfg);
 
+  const MIN_WORDS = cfg.minWords || 30;
+
   let jobs = [];
   let ranking = [];
   let reasons = {};
@@ -295,7 +297,7 @@
     const head = el("div", "cq-header");
     head.appendChild(el("h2", "cq-title", "Step 3: Why don't you want these jobs?"));
     card.appendChild(head);
-    card.appendChild(el("p", "cq-sub", "For each job, write 30 words explaining why you wouldn't want to do it. Be specific!"));
+    card.appendChild(el("p", "cq-sub", `For each job, write at least ${MIN_WORDS} words explaining why you wouldn't want to do it. Be specific!`));
 
     const reasonsWrap = el("div", "cq-reasons-wrap");
 
@@ -303,20 +305,21 @@
       const jobCard = el("div", "cq-reason-card");
       const jobTitle = el("h4", "", `${idx + 1}. ${job}`);
       const textarea = document.createElement("textarea");
-      textarea.placeholder = "Why you don't want this job (aim for ~30 words)...";
+      textarea.placeholder = `Why you don't want this job (aim for ${MIN_WORDS} words)...`;
       textarea.value = reasons[job] || "";
       textarea.dataset.job = job;
       const wordCount = el("div", "cq-word-count", "0 words");
 
       textarea.addEventListener("input", () => {
         const words = textarea.value.trim().split(/\s+/).filter(w => w.length > 0);
-        wordCount.textContent = `${words.length} words`;
-        if (words.length >= 20 && words.length <= 40) {
-          wordCount.style.color = "#00D4FF";
-        } else if (words.length > 40) {
-          wordCount.style.color = "#FF4C6A";
+        const wc = words.length;
+        wordCount.textContent = `${wc} words`;
+        if (wc >= MIN_WORDS) {
+          wordCount.style.color = "#00FF88"; // neon green — target reached
+        } else if (wc > 0) {
+          wordCount.style.color = "#00D4FF"; // cyan — in progress
         } else {
-          wordCount.style.color = "#888888";
+          wordCount.style.color = "#888888"; // grey — not started
         }
         updateCanProceed();
       });
@@ -356,11 +359,15 @@
 
     function updateCanProceed() {
       const textareas = Array.from(reasonsWrap.querySelectorAll("textarea"));
-      const allFilled = textareas.every(ta => {
+      if (textareas.length < ranking.length) {
+        nextBtn.disabled = true;
+        return;
+      }
+      const allGreen = textareas.every(ta => {
         const words = ta.value.trim().split(/\s+/).filter(w => w.length > 0);
-        return words.length >= 10;
+        return words.length >= MIN_WORDS;
       });
-      nextBtn.disabled = !allFilled;
+      nextBtn.disabled = !allGreen;
     }
     updateCanProceed();
 
@@ -434,7 +441,7 @@
     if (analysis) {
       const analysisBox  = el("div", "cq-analysis");
       const analysisText = el("div", "cq-analysis-text");
-      analysisText.textContent = analysis;
+      analysisText.innerHTML = formatAnalysis(analysis);
       analysisBox.appendChild(analysisText);
       card.appendChild(analysisBox);
     } else {
@@ -446,6 +453,29 @@
 
     wrap.appendChild(card);
     root.replaceChildren(wrap);
+  }
+
+  function formatAnalysis(text) {
+    if (!text) return '';
+    // Convert **bold** markers to styled spans
+    text = text.replace(/\*\*([^*]+)\*\*/g, '<strong class="cq-analysis-highlight">$1</strong>');
+    // Remove any remaining stray asterisks
+    text = text.replace(/\*+/g, '');
+    // Split into paragraphs on double newlines
+    const paragraphs = text.split(/\n\n+/);
+    return paragraphs.map(p => {
+      p = p.trim();
+      if (!p) return '';
+      // "- Steve" sign-off
+      if (p.match(/^[-–]\s*Steve/i)) {
+        return `<p class="cq-analysis-signoff">${p}</p>`;
+      }
+      // "Steve says:" opener
+      if (p.match(/^Steve says:/i)) {
+        return `<p class="cq-analysis-opener">${p}</p>`;
+      }
+      return `<p class="cq-analysis-para">${p.replace(/\n/g, '<br>')}</p>`;
+    }).join('');
   }
 
   function mount() {

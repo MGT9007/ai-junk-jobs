@@ -2,14 +2,14 @@
 /**
  * Plugin Name: AI Junk Jobs
  * Description: Students explore jobs they DON'T want, rank them, explain why, and get AI-powered insights to reframe into positive requirements. Use shortcode [ai_junk_jobs].
- * Version: 3.0.2
+ * Version: 3.1.0
  * Author: MisterT9007
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 class AI_Junk_Jobs {
-    const VERSION      = '3.0.2';
+    const VERSION      = '3.1.0';
     const TABLE        = 'mfsd_ai_junk_jobs_results';
     const NONCE_ACTION = 'wp_rest';
 
@@ -103,6 +103,20 @@ class AI_Junk_Jobs {
 
         $user_id = $this->get_current_user_id();
 
+       // Calculate age-based minimum word count
+        $dob = get_user_meta( $user_id, 'date_of_birth', true );
+        $min_words = 30; // default (age 11-12)
+        if ( $dob ) {
+            $age = date_diff( date_create( $dob ), date_create( 'today' ) )->y;
+            if ( $age >= 14 ) {
+                $min_words = 100;
+            } elseif ( $age >= 13 ) {
+                $min_words = 50;
+            } else {
+                $min_words = 30;
+            }
+        }
+
         $config = array(
             'restUrlSubmit' => esc_url_raw( rest_url( 'ai-junk-jobs/v1/submit' ) ),
             'restUrlStatus' => esc_url_raw( rest_url( 'ai-junk-jobs/v1/status' ) ),
@@ -110,6 +124,7 @@ class AI_Junk_Jobs {
             'user'          => is_user_logged_in() ? wp_get_current_user()->user_login : '',
             'email'         => is_user_logged_in() ? wp_get_current_user()->user_email : '',
             'userId'        => $user_id,
+            'minWords'      => $min_words,
         );
 
         wp_add_inline_script(
