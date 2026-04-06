@@ -1,18 +1,21 @@
 (function () {
-  const cfg = window.AI_JUNK_JOBS_CFG || {};
-  const root = document.getElementById("ai-junk-jobs-root");
-  if (!root) return;
+  'use strict';
 
-  console.log('AI Junk Jobs Config:', cfg);
+  const cfg  = window.AI_JUNK_JOBS_CFG || {};
+  const root = document.getElementById('ai-junk-jobs-root');
+  if (!root) return;
 
   const MIN_WORDS = cfg.minWords || 30;
 
-  let jobs = [];
-  let ranking = [];
-  let reasons = {};
+  let jobs       = [];
+  let ranking    = [];
+  let reasons    = {};
   let resultData = null;
-  let step = "loading";
+  let step       = 'loading';
 
+  /* ================================================================
+     HELPERS
+     ================================================================ */
   function el(tag, cls, txt) {
     const x = document.createElement(tag);
     if (cls) x.className = cls;
@@ -20,126 +23,137 @@
     return x;
   }
 
-  function showLoadingOverlay(text = "Generating your analysis...") {
-    const overlay = el("div", "cq-loading-overlay");
-    const spinner = el("div", "cq-spinner");
-    const textEl = el("div", "cq-loading-text", text);
-    overlay.appendChild(spinner);
-    overlay.appendChild(textEl);
+  function showLoadingOverlay(text) {
+    let overlay = document.querySelector('.cq-loading-overlay');
+    if (overlay) {
+      const t = overlay.querySelector('.cq-loading-text');
+      if (t) t.textContent = text || 'Loading...';
+      return overlay;
+    }
+    overlay = el('div', 'cq-loading-overlay');
+    overlay.appendChild(el('div', 'cq-spinner'));
+    overlay.appendChild(el('div', 'cq-loading-text', text || 'Loading...'));
     document.body.appendChild(overlay);
     return overlay;
   }
 
-  function hideLoadingOverlay(overlay) {
-    if (overlay && overlay.parentNode) {
-      overlay.parentNode.removeChild(overlay);
-    }
+  function updateLoadingText(text) {
+    const t = document.querySelector('.cq-loading-text');
+    if (t) t.textContent = text;
   }
 
+  function hideLoadingOverlay() {
+    const overlay = document.querySelector('.cq-loading-overlay');
+    if (overlay) overlay.remove();
+  }
+
+  async function apiFetch(url, options) {
+    const res = await fetch(url, Object.assign({
+      credentials: 'same-origin',
+      headers: { 'X-WP-Nonce': cfg.nonce || '', 'Accept': 'application/json' }
+    }, options));
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+
+  /* ================================================================
+     STATUS CHECK
+     ================================================================ */
   async function checkStatus() {
     try {
-      console.log('Checking status at:', cfg.restUrlStatus);
-      const res = await fetch(cfg.restUrlStatus + "?_=" + Date.now(), {
-        method: 'GET',
-        headers: { 'X-WP-Nonce': cfg.nonce || '', 'Accept': 'application/json' },
-        credentials: 'same-origin'
-      });
+      const data = await apiFetch(cfg.restUrlStatus + '?_=' + Date.now());
 
-      console.log('Status response:', res.status, res.statusText);
-
-      if (res.ok) {
-        const data = await res.json();
-        console.log('Junk Jobs Status:', data);
-
-        if (data.ok && data.status === 'completed' && data.analysis) {
-          resultData = { ranking: data.ranking || [], reasons: data.reasons || {}, analysis: data.analysis, mbti_type: data.mbti_type };
-          ranking = data.ranking || [];
-          jobs = data.jobs || [];
-          reasons = data.reasons || {};
-          step = "results";
-        } else if (data.ok && data.status === 'completed' && data.needs_regeneration) {
-          jobs    = data.jobs    || [];
-          ranking = data.ranking || [];
-          reasons = data.reasons || {};
-          step = "regenerating";
-        } else if (data.ok && data.status === 'reasons' && data.jobs && data.ranking) {
-          jobs = data.jobs;
-          ranking = data.ranking;
-          reasons = data.reasons || {};
-          step = "reasons";
-        } else if (data.ok && data.status === 'in_progress' && data.jobs) {
-          jobs = data.jobs;
-          ranking = data.ranking && data.ranking.length > 0 ? data.ranking : jobs;
-          step = "rank";
-        } else {
-          step = "input";
-        }
+      if (data.ok && data.status === 'completed' && (data.intro_text || data.job_summaries)) {
+        // New structured format
+        resultData = data;
+        ranking    = data.ranking || [];
+        jobs       = data.jobs    || [];
+        reasons    = data.reasons || {};
+        step       = 'results';
+      } else if (data.ok && data.status === 'completed' && data.analysis) {
+        // Legacy single-analysis format
+        resultData = data;
+        ranking    = data.ranking || [];
+        jobs       = data.jobs    || [];
+        reasons    = data.reasons || {};
+        step       = 'results';
+      } else if (data.ok && data.status === 'completed' && data.needs_regeneration) {
+        jobs    = data.jobs    || [];
+        ranking = data.ranking || [];
+        reasons = data.reasons || {};
+        step    = 'regenerating';
+      } else if (data.ok && data.status === 'reasons' && data.jobs && data.ranking) {
+        jobs    = data.jobs;
+        ranking = data.ranking;
+        reasons = data.reasons || {};
+        step    = 'reasons';
+      } else if (data.ok && data.status === 'in_progress' && data.jobs) {
+        jobs    = data.jobs;
+        ranking = data.ranking && data.ranking.length > 0 ? data.ranking : jobs;
+        step    = 'rank';
       } else {
-        const errorText = await res.text();
-        console.error('Status check failed:', res.status, errorText);
-        step = "input";
+        step = 'input';
       }
     } catch (err) {
       console.error('Status check error:', err);
-      step = "input";
+      step = 'input';
     }
     mount();
   }
 
+  /* ================================================================
+     DRAG AND DROP
+     ================================================================ */
   function makeItem(job) {
-    const li = el("li", "cq-item");
+    const li     = el('li', 'cq-item');
     li.dataset.job = job;
-    const handle = el("span", "cq-handle", "☰");
-    const text = el("span", "cq-label", job);
-    const pill = el("span", "cq-rankpill", "");
-    li.appendChild(handle);
-    li.appendChild(text);
-    li.appendChild(pill);
+    li.appendChild(el('span', 'cq-handle', '☰'));
+    li.appendChild(el('span', 'cq-label', job));
+    li.appendChild(el('span', 'cq-rankpill', ''));
     return li;
   }
 
   function enableDnD(list) {
     let dragEl = null;
-    let ghost = null;
+    let ghost  = null;
 
     function updatePills() {
-      const items = Array.from(list.querySelectorAll(".cq-item"));
+      const items = Array.from(list.querySelectorAll('.cq-item'));
       const total = items.length || 1;
-      items.forEach((li, i) => {
-        const pill = li.querySelector(".cq-rankpill");
-        if (pill) pill.textContent = `${i + 1} of ${total}`;
+      items.forEach(function (li, i) {
+        const pill = li.querySelector('.cq-rankpill');
+        if (pill) pill.textContent = (i + 1) + ' of ' + total;
       });
     }
 
     function getDragAfterElement(container, y) {
-      const els = Array.from(container.querySelectorAll(".cq-item:not(.dragging)"));
-      return els.reduce((closest, child) => {
-        const box = child.getBoundingClientRect();
+      return Array.from(container.querySelectorAll('.cq-item:not(.dragging)')).reduce(function (closest, child) {
+        const box    = child.getBoundingClientRect();
         const offset = y - box.top - box.height / 2;
-        if (offset < 0 && offset > closest.offset) return { offset, element: child };
+        if (offset < 0 && offset > closest.offset) return { offset: offset, element: child };
         return closest;
       }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
     }
 
     function onPointerDown(e) {
-      const targetItem = e.target.closest(".cq-item");
+      const targetItem = e.target.closest('.cq-item');
       if (!targetItem || !list.contains(targetItem)) return;
       e.preventDefault();
       dragEl = targetItem;
-      dragEl.classList.add("dragging");
-      ghost = document.createElement("div");
-      ghost.className = "cq-ghost";
+      dragEl.classList.add('dragging');
+      ghost = document.createElement('div');
+      ghost.className = 'cq-ghost';
       dragEl.after(ghost);
-      window.addEventListener("pointermove", onPointerMove);
-      window.addEventListener("pointerup", onPointerUp);
-      window.addEventListener("pointercancel", onPointerUp);
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerUp);
     }
 
     function onPointerMove(e) {
       if (!dragEl) return;
       e.preventDefault();
       const after = getDragAfterElement(list, e.clientY);
-      if (!ghost) { ghost = document.createElement("div"); ghost.className = "cq-ghost"; }
+      if (!ghost) { ghost = document.createElement('div'); ghost.className = 'cq-ghost'; }
       if (after == null) list.appendChild(ghost);
       else list.insertBefore(ghost, after);
     }
@@ -148,78 +162,77 @@
       if (!dragEl) return;
       e.preventDefault();
       if (ghost) { list.insertBefore(dragEl, ghost); ghost.remove(); ghost = null; }
-      dragEl.classList.remove("dragging");
+      dragEl.classList.remove('dragging');
       dragEl = null;
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
-      window.removeEventListener("pointercancel", onPointerUp);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
       updatePills();
     }
 
-    list.addEventListener("pointerdown", onPointerDown);
+    list.addEventListener('pointerdown', onPointerDown);
     updatePills();
   }
 
+  /* ================================================================
+     SCREEN 1 — Input
+     ================================================================ */
   function renderInput() {
-    const wrap = el("div", "cq-wrap");
-    const card = el("div", "cq-card");
-    const head = el("div", "cq-header");
-    head.appendChild(el("h2", "cq-title", "Step 1: Jobs you DON'T want"));
+    const wrap = el('div', 'cq-wrap');
+    const card = el('div', 'cq-card');
+    const head = el('div', 'cq-header');
+    head.appendChild(el('h2', 'cq-title', "Step 1: Jobs you DON'T want"));
     card.appendChild(head);
-    card.appendChild(el("p", "cq-sub", "Think of 5 jobs you'd really NOT want to do. Be honest – this is about figuring out what matters to you!"));
+    card.appendChild(el('p', 'cq-sub', "Think of 5 jobs you'd really NOT want to do. Be honest – this is about figuring out what matters to you!"));
 
-    const inputsWrap = el("div", "cq-inputs-vertical");
-    const existing = jobs.length ? jobs : Array(5).fill("");
-    for (let i = 0; i < 5; i++) {
-      const row = el("div", "cq-input-row");
-      const label = el("label", "", `Job ${i + 1}`);
-      const input = document.createElement("input");
-      input.type = "text";
-      input.placeholder = "e.g. Telemarketer, Bin Collector, Factory Worker…";
-      input.value = existing[i] || "";
+    const inputsWrap = el('div', 'cq-inputs-vertical');
+    const existing   = jobs.length ? jobs : Array(5).fill('');
+    for (var i = 0; i < 5; i++) {
+      const row   = el('div', 'cq-input-row');
+      const label = el('label', '', 'Job ' + (i + 1));
+      const input = document.createElement('input');
+      input.type        = 'text';
+      input.placeholder = 'e.g. Telemarketer, Bin Collector, Factory Worker…';
+      input.value       = existing[i] || '';
       row.appendChild(label);
       row.appendChild(input);
       inputsWrap.appendChild(row);
     }
     card.appendChild(inputsWrap);
 
-    const actions = el("div", "cq-actions");
-    const nextBtn = el("button", "cq-btn", "Next: Rank them");
+    const actions = el('div', 'cq-actions');
+    const nextBtn = el('button', 'cq-btn', 'Next: Rank them');
     nextBtn.disabled = true;
     actions.appendChild(nextBtn);
     card.appendChild(actions);
 
     function updateCanProceed() {
-      const vals = Array.from(inputsWrap.querySelectorAll("input")).map(i => i.value.trim());
-      nextBtn.disabled = vals.filter(v => v !== "").length < 5;
+      const vals = Array.from(inputsWrap.querySelectorAll('input')).map(function (i) { return i.value.trim(); });
+      nextBtn.disabled = vals.filter(function (v) { return v !== ''; }).length < 5;
     }
-    inputsWrap.addEventListener("input", updateCanProceed);
+    inputsWrap.addEventListener('input', updateCanProceed);
     updateCanProceed();
 
-    nextBtn.onclick = async () => {
-      const vals = Array.from(inputsWrap.querySelectorAll("input")).map(i => i.value.trim());
-      jobs = vals.filter(v => v !== "").slice(0, 5);
-      ranking = [...jobs];
+    nextBtn.onclick = async function () {
+      const vals = Array.from(inputsWrap.querySelectorAll('input')).map(function (i) { return i.value.trim(); });
+      jobs    = vals.filter(function (v) { return v !== ''; }).slice(0, 5);
+      ranking = jobs.slice();
       try {
-        nextBtn.disabled = true;
-        nextBtn.textContent = "Saving...";
-        const res = await fetch(cfg.restUrlSubmit, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-WP-Nonce": cfg.nonce || '' },
-          credentials: 'same-origin',
-          body: JSON.stringify({ jobs, step: 'save_jobs' }),
+        nextBtn.disabled  = true;
+        nextBtn.textContent = 'Saving...';
+        const data = await apiFetch(cfg.restUrlSubmit, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': cfg.nonce || '' },
+          body:    JSON.stringify({ jobs: jobs, step: 'save_jobs' })
         });
-        const raw = await res.text();
-        let j = null;
-        try { j = raw ? JSON.parse(raw) : null; } catch (e) { throw new Error("Server returned non-JSON: " + raw.slice(0, 280)); }
-        if (!res.ok || !j || j.ok !== true) throw new Error((j && j.error) || `${res.status} ${res.statusText}`);
-        step = "rank";
+        if (!data || !data.ok) throw new Error(data && data.error ? data.error : 'Save failed');
+        step = 'rank';
         mount();
       } catch (err) {
         console.error('Save error:', err);
-        alert("Failed to save: " + err.message);
-        nextBtn.disabled = false;
-        nextBtn.textContent = "Next: Rank them";
+        alert('Failed to save: ' + err.message);
+        nextBtn.disabled    = false;
+        nextBtn.textContent = 'Next: Rank them';
       }
     };
 
@@ -227,63 +240,59 @@
     root.replaceChildren(wrap);
   }
 
+  /* ================================================================
+     SCREEN 2 — Rank
+     ================================================================ */
   function renderRank() {
-    const wrap = el("div", "cq-wrap");
-    const card = el("div", "cq-card");
-    const head = el("div", "cq-header");
-    head.appendChild(el("h2", "cq-title", "Step 2: Rank your junk jobs"));
+    const wrap = el('div', 'cq-wrap');
+    const card = el('div', 'cq-card');
+    const head = el('div', 'cq-header');
+    head.appendChild(el('h2', 'cq-title', 'Step 2: Rank your junk jobs'));
     card.appendChild(head);
-    card.appendChild(el("p", "cq-sub", "Drag to reorder from MOST undesirable (top) to LEAST undesirable (bottom)."));
+    card.appendChild(el('p', 'cq-sub', 'Drag to reorder from MOST undesirable (top) to LEAST undesirable (bottom).'));
 
-    const list = el("ul", "cq-list");
-    ranking.forEach(job => list.appendChild(makeItem(job)));
+    const list = el('ul', 'cq-list');
+    ranking.forEach(function (job) { list.appendChild(makeItem(job)); });
     card.appendChild(list);
     enableDnD(list);
 
-    const actions = el("div", "cq-actions");
-
-    const backBtn = el("button", "cq-btn cq-btn-back", "← Back");
-    backBtn.onclick = async () => {
-      try {
-        await fetch(cfg.restUrlSubmit, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-WP-Nonce": cfg.nonce || '' },
-          credentials: 'same-origin',
-          body: JSON.stringify({ jobs, ranking, step: 'back_to_input' }),
-        });
-      } catch (err) { console.error('Back error:', err); }
-      step = "input";
-      mount();
-    };
-
-    const nextBtn = el("button", "cq-btn", "Next: Explain why");
+    const actions = el('div', 'cq-actions');
+    const backBtn = el('button', 'cq-btn cq-btn-back', '← Back');
+    const nextBtn = el('button', 'cq-btn', 'Next: Explain why');
     actions.appendChild(backBtn);
     actions.appendChild(nextBtn);
     card.appendChild(actions);
 
-    nextBtn.onclick = async () => {
-      const order = Array.from(list.querySelectorAll(".cq-item")).map(li => li.dataset.job);
-      ranking = order;
+    backBtn.onclick = async function () {
       try {
-        nextBtn.disabled = true;
-        nextBtn.textContent = "Saving…";
-        const res = await fetch(cfg.restUrlSubmit, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-WP-Nonce": cfg.nonce || '' },
-          credentials: 'same-origin',
-          body: JSON.stringify({ jobs, ranking, step: 'save_ranking' }),
+        await apiFetch(cfg.restUrlSubmit, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': cfg.nonce || '' },
+          body:    JSON.stringify({ jobs: jobs, ranking: ranking, step: 'back_to_input' })
         });
-        const raw = await res.text();
-        let j = null;
-        try { j = raw ? JSON.parse(raw) : null; } catch (e) { throw new Error("Server returned non-JSON: " + raw.slice(0, 280)); }
-        if (!res.ok || !j || j.ok !== true) throw new Error((j && j.error) || `${res.status} ${res.statusText}`);
-        step = "reasons";
+      } catch (err) { console.error('Back error:', err); }
+      step = 'input';
+      mount();
+    };
+
+    nextBtn.onclick = async function () {
+      ranking = Array.from(list.querySelectorAll('.cq-item')).map(function (li) { return li.dataset.job; });
+      try {
+        nextBtn.disabled    = true;
+        nextBtn.textContent = 'Saving…';
+        const data = await apiFetch(cfg.restUrlSubmit, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': cfg.nonce || '' },
+          body:    JSON.stringify({ jobs: jobs, ranking: ranking, step: 'save_ranking' })
+        });
+        if (!data || !data.ok) throw new Error(data && data.error ? data.error : 'Save failed');
+        step = 'reasons';
         mount();
       } catch (err) {
         console.error('Ranking save error:', err);
-        alert("Failed to save ranking: " + err.message);
-        nextBtn.disabled = false;
-        nextBtn.textContent = "Next: Explain why";
+        alert('Failed to save ranking: ' + err.message);
+        nextBtn.disabled    = false;
+        nextBtn.textContent = 'Next: Explain why';
       }
     };
 
@@ -291,35 +300,38 @@
     root.replaceChildren(wrap);
   }
 
+  /* ================================================================
+     SCREEN 3 — Reasons
+     ================================================================ */
   function renderReasons() {
-    const wrap = el("div", "cq-wrap");
-    const card = el("div", "cq-card");
-    const head = el("div", "cq-header");
-    head.appendChild(el("h2", "cq-title", "Step 3: Why don't you want these jobs?"));
+    const wrap = el('div', 'cq-wrap');
+    const card = el('div', 'cq-card');
+    const head = el('div', 'cq-header');
+    head.appendChild(el('h2', 'cq-title', "Step 3: Why don't you want these jobs?"));
     card.appendChild(head);
-    card.appendChild(el("p", "cq-sub", `For each job, write at least ${MIN_WORDS} words explaining why you wouldn't want to do it. Be specific!`));
+    card.appendChild(el('p', 'cq-sub', 'For each job, write at least ' + MIN_WORDS + ' words explaining why you wouldn\'t want to do it. Be specific!'));
 
-    const reasonsWrap = el("div", "cq-reasons-wrap");
+    const reasonsWrap = el('div', 'cq-reasons-wrap');
 
-    ranking.forEach((job, idx) => {
-      const jobCard = el("div", "cq-reason-card");
-      const jobTitle = el("h4", "", `${idx + 1}. ${job}`);
-      const textarea = document.createElement("textarea");
-      textarea.placeholder = `Why you don't want this job (aim for ${MIN_WORDS} words)...`;
-      textarea.value = reasons[job] || "";
-      textarea.dataset.job = job;
-      const wordCount = el("div", "cq-word-count", "0 words");
+    ranking.forEach(function (job, idx) {
+      const jobCard  = el('div', 'cq-reason-card');
+      const jobTitle = el('h4', '', (idx + 1) + '. ' + job);
+      const textarea = document.createElement('textarea');
+      textarea.placeholder  = 'Why you don\'t want this job (aim for ' + MIN_WORDS + ' words)...';
+      textarea.value        = reasons[job] || '';
+      textarea.dataset.job  = job;
+      const wordCount = el('div', 'cq-word-count', '0 words');
 
-      textarea.addEventListener("input", () => {
-        const words = textarea.value.trim().split(/\s+/).filter(w => w.length > 0);
-        const wc = words.length;
-        wordCount.textContent = `${wc} words`;
+      textarea.addEventListener('input', function () {
+        const words = textarea.value.trim().split(/\s+/).filter(function (w) { return w.length > 0; });
+        const wc    = words.length;
+        wordCount.textContent = wc + ' words';
         if (wc >= MIN_WORDS) {
-          wordCount.style.color = "#00FF88"; // neon green — target reached
+          wordCount.style.color = '#00FF88';
         } else if (wc > 0) {
-          wordCount.style.color = "#00D4FF"; // cyan — in progress
+          wordCount.style.color = '#00D4FF';
         } else {
-          wordCount.style.color = "#888888"; // grey — not started
+          wordCount.style.color = '#888888';
         }
         updateCanProceed();
       });
@@ -333,72 +345,88 @@
 
     card.appendChild(reasonsWrap);
 
-    const actions = el("div", "cq-actions");
-
-    const backBtn = el("button", "cq-btn cq-btn-back", "← Back");
-    backBtn.onclick = async () => {
-      const textareas = Array.from(reasonsWrap.querySelectorAll("textarea"));
-      textareas.forEach(ta => { reasons[ta.dataset.job] = ta.value.trim(); });
-      try {
-        await fetch(cfg.restUrlSubmit, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-WP-Nonce": cfg.nonce || '' },
-          credentials: 'same-origin',
-          body: JSON.stringify({ jobs, ranking, step: 'back_to_rank' }),
-        });
-      } catch (err) { console.error('Back error:', err); }
-      step = "rank";
-      mount();
-    };
-
-    const nextBtn = el("button", "cq-btn", "Generate AI Analysis");
+    const actions = el('div', 'cq-actions');
+    const backBtn = el('button', 'cq-btn cq-btn-back', '← Back');
+    const nextBtn = el('button', 'cq-btn', 'Generate AI Analysis');
     nextBtn.disabled = true;
     actions.appendChild(backBtn);
     actions.appendChild(nextBtn);
     card.appendChild(actions);
 
     function updateCanProceed() {
-      const textareas = Array.from(reasonsWrap.querySelectorAll("textarea"));
-      if (textareas.length < ranking.length) {
-        nextBtn.disabled = true;
-        return;
-      }
-      const allGreen = textareas.every(ta => {
-        const words = ta.value.trim().split(/\s+/).filter(w => w.length > 0);
-        return words.length >= MIN_WORDS;
+      const textareas = Array.from(reasonsWrap.querySelectorAll('textarea'));
+      if (textareas.length < ranking.length) { nextBtn.disabled = true; return; }
+      nextBtn.disabled = !textareas.every(function (ta) {
+        return ta.value.trim().split(/\s+/).filter(function (w) { return w.length > 0; }).length >= MIN_WORDS;
       });
-      nextBtn.disabled = !allGreen;
     }
     updateCanProceed();
 
-    nextBtn.onclick = async () => {
-      const textareas = Array.from(reasonsWrap.querySelectorAll("textarea"));
-      textareas.forEach(ta => { reasons[ta.dataset.job] = ta.value.trim(); });
-      let overlay = null;
+    backBtn.onclick = async function () {
+      Array.from(reasonsWrap.querySelectorAll('textarea')).forEach(function (ta) {
+        reasons[ta.dataset.job] = ta.value.trim();
+      });
       try {
-        nextBtn.disabled = true;
-        nextBtn.textContent = "Analyzing…";
-        overlay = showLoadingOverlay("Analyzing your junk jobs and generating insights...");
-        const res = await fetch(cfg.restUrlSubmit, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-WP-Nonce": cfg.nonce || '' },
-          credentials: 'same-origin',
-          body: JSON.stringify({ jobs, ranking, reasons, step: 'generate_analysis' }),
+        await apiFetch(cfg.restUrlSubmit, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': cfg.nonce || '' },
+          body:    JSON.stringify({ jobs: jobs, ranking: ranking, step: 'back_to_rank' })
         });
-        const raw = await res.text();
-        let j = null;
-        try { j = raw ? JSON.parse(raw) : null; } catch (e) { throw new Error("Server returned non-JSON: " + raw.slice(0, 280)); }
-        if (!res.ok || !j || j.ok !== true) throw new Error((j && j.error) || `${res.status} ${res.statusText}`);
-        resultData = j;
-        hideLoadingOverlay(overlay);
-        step = "results";
+      } catch (err) { console.error('Back error:', err); }
+      step = 'rank';
+      mount();
+    };
+
+    nextBtn.onclick = async function () {
+      Array.from(reasonsWrap.querySelectorAll('textarea')).forEach(function (ta) {
+        reasons[ta.dataset.job] = ta.value.trim();
+      });
+
+      nextBtn.disabled    = true;
+      nextBtn.textContent = 'Analyzing…';
+
+      const loadingMessages = [
+        'Reading your choices...',
+        'Analysing job 1 of 5...',
+        'Analysing job 2 of 5...',
+        'Analysing job 3 of 5...',
+        'Analysing job 4 of 5...',
+        'Analysing job 5 of 5...',
+        'Writing your conclusions...',
+        'Almost done...'
+      ];
+
+      showLoadingOverlay(loadingMessages[0]);
+
+      var msgIdx = 0;
+      var msgTimer = setInterval(function () {
+        msgIdx++;
+        if (msgIdx < loadingMessages.length) {
+          updateLoadingText(loadingMessages[msgIdx]);
+        }
+      }, 3500);
+
+      try {
+        const data = await apiFetch(cfg.restUrlSubmit, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': cfg.nonce || '' },
+          body:    JSON.stringify({ jobs: jobs, ranking: ranking, reasons: reasons, step: 'generate_analysis' })
+        });
+
+        clearInterval(msgTimer);
+        hideLoadingOverlay();
+
+        if (!data || !data.ok) throw new Error(data && data.error ? data.error : 'Analysis failed');
+        resultData = data;
+        step       = 'results';
         mount();
       } catch (err) {
-        hideLoadingOverlay(overlay);
+        clearInterval(msgTimer);
+        hideLoadingOverlay();
         console.error('Analysis error:', err);
-        alert("AI analysis failed: " + err.message);
-        nextBtn.disabled = false;
-        nextBtn.textContent = "Generate AI Analysis";
+        alert('AI analysis failed: ' + err.message);
+        nextBtn.disabled    = false;
+        nextBtn.textContent = 'Generate AI Analysis';
       }
     };
 
@@ -406,120 +434,160 @@
     root.replaceChildren(wrap);
   }
 
+  /* ================================================================
+     SCREEN 4 — Results (new structured format)
+     ================================================================ */
   function renderResults() {
-    const wrap = el("div", "cq-wrap");
-    const card = el("div", "cq-card");
-    const head = el("div", "cq-header");
-    head.appendChild(el("h2", "cq-title", "Your Junk Jobs Analysis"));
+    const wrap = el('div', 'cq-wrap');
+    const card = el('div', 'cq-card');
+    const head = el('div', 'cq-header');
+    head.appendChild(el('h2', 'cq-title', 'Your Junk Jobs Analysis'));
     card.appendChild(head);
 
-    const rankedJobs  = (resultData && resultData.ranking) || ranking;
-    const jobReasons  = (resultData && resultData.reasons) || reasons;
-    const analysis    = (resultData && resultData.analysis) || "";
-    const mbtiType    = resultData && resultData.mbti_type;
+    const rankedJobs    = (resultData && resultData.ranking)      || ranking;
+    const jobReasons    = (resultData && resultData.reasons)       || reasons;
+    const introText     = (resultData && resultData.intro_text)    || '';
+    const jobSummaries  = (resultData && resultData.job_summaries) || [];
+    const conclusion    = (resultData && resultData.conclusion)    || '';
+    const legacyAnalysis= (resultData && resultData.analysis)      || '';
 
-    const jobsSection = el("div", "cq-jobs-section");
-    const jobsTitle   = el("h3", "", "Your ranked junk jobs:");
-    jobsSection.appendChild(jobsTitle);
-
-    rankedJobs.forEach((job, idx) => {
-      const jobItem   = el("div", "cq-job-item");
-      const jobName   = el("div", "", `${idx + 1}. ${job}`);
-      const jobReason = el("div", "", jobReasons[job] || "");
-      jobItem.appendChild(jobName);
-      jobItem.appendChild(jobReason);
-      jobsSection.appendChild(jobItem);
-    });
-    card.appendChild(jobsSection);
-
-    if (mbtiType) {
-      const mbtiNote = el("p", "cq-mbti-note",
-        "Based on your MBTI personality type (" + mbtiType + "), here's why these jobs don't suit you and what you DO need:");
-      card.appendChild(mbtiNote);
+    // ── Intro ──────────────────────────────────────────────────────
+    if (introText) {
+      const introBox = el('div', 'cq-analysis-opener-box');
+      introBox.innerHTML = formatInline(introText);
+      card.appendChild(introBox);
     }
 
-    if (analysis) {
-      const analysisBox  = el("div", "cq-analysis");
-      const analysisText = el("div", "cq-analysis-text");
-      analysisText.innerHTML = formatAnalysis(analysis);
+    // ── Per-job blocks ─────────────────────────────────────────────
+    if (jobSummaries && jobSummaries.length > 0) {
+      rankedJobs.forEach(function (job, idx) {
+        const block = el('div', 'cq-job-result-block');
+
+        // Job header — student's own input
+        const jobHeader = el('div', 'cq-job-result-header');
+        const jobNum    = el('span', 'cq-job-result-num', (idx + 1) + '.');
+        const jobName   = el('span', 'cq-job-result-name', job);
+        jobHeader.appendChild(jobNum);
+        jobHeader.appendChild(jobName);
+        block.appendChild(jobHeader);
+
+        // Student's reason
+        if (jobReasons[job]) {
+          const reasonBox = el('div', 'cq-job-result-reason');
+          reasonBox.textContent = jobReasons[job];
+          block.appendChild(reasonBox);
+        }
+
+        // AI summary for this job
+        const summary = jobSummaries[idx] || '';
+        if (summary) {
+          const aiBox = el('div', 'cq-job-result-ai');
+          aiBox.innerHTML = formatInline(summary);
+          block.appendChild(aiBox);
+        }
+
+        card.appendChild(block);
+      });
+
+      // ── Conclusion ───────────────────────────────────────────────
+      if (conclusion) {
+        const concBox = el('div', 'cq-conclusion-box');
+        concBox.innerHTML = formatInline(conclusion);
+        card.appendChild(concBox);
+      }
+
+    } else if (legacyAnalysis) {
+      // Fallback: legacy single-analysis format
+      const analysisBox  = el('div', 'cq-analysis');
+      const analysisText = el('div', 'cq-analysis-text');
+      analysisText.innerHTML = formatAnalysis(legacyAnalysis);
       analysisBox.appendChild(analysisText);
       card.appendChild(analysisBox);
-    } else {
-      const analysisBox = el("div", "cq-analysis");
-      analysisBox.appendChild(el("p", "cq-analysis-text",
-        "We couldn't generate AI analysis right now, but your junk jobs and reasons have been saved."));
-      card.appendChild(analysisBox);
     }
+
+    // ── Navigation buttons ─────────────────────────────────────────
+    const navWrap  = el('div', 'cq-nav-actions');
+    const badgesBtn = document.createElement('a');
+    badgesBtn.className = 'cq-btn cq-btn-back';
+    badgesBtn.href      = cfg.urlBadges || 'https://mfsd.me/badges/';
+    badgesBtn.textContent = 'View My Badges';
+    const courseBtn = document.createElement('a');
+    courseBtn.className = 'cq-btn';
+    courseBtn.href      = cfg.urlCourse || 'https://mfsd.me/about/parent-portal-home/?course_id=1';
+    courseBtn.textContent = 'Return to Course';
+    navWrap.appendChild(badgesBtn);
+    navWrap.appendChild(courseBtn);
+    card.appendChild(navWrap);
 
     wrap.appendChild(card);
     root.replaceChildren(wrap);
   }
 
+  /* ================================================================
+     REGENERATING (save_summary was OFF, returning student)
+     ================================================================ */
+  async function renderRegenerating() {
+    showLoadingOverlay('Generating your analysis...');
+    try {
+      const data = await apiFetch(cfg.restUrlSubmit, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': cfg.nonce || '' },
+        body:    JSON.stringify({ jobs: jobs, ranking: ranking, reasons: reasons, step: 'generate_analysis' })
+      });
+      hideLoadingOverlay();
+      if (data && data.ok) {
+        resultData = data;
+        step       = 'results';
+        mount();
+      } else {
+        throw new Error((data && data.error) || 'Generation failed');
+      }
+    } catch (err) {
+      hideLoadingOverlay();
+      console.error('Regeneration error:', err);
+      step = 'reasons';
+      mount();
+    }
+  }
+
+  /* ================================================================
+     TEXT FORMATTERS
+     ================================================================ */
+
+  // Inline formatting only — bold markers, clean up asterisks
+  function formatInline(text) {
+    if (!text) return '';
+    text = text.replace(/\*\*([^*]+)\*\*/g, '<strong class="cq-analysis-highlight">$1</strong>');
+    text = text.replace(/\*+/g, '');
+    // Convert newlines to <br>
+    text = text.replace(/\n/g, '<br>');
+    return text;
+  }
+
+  // Full paragraph formatter — used for legacy single-analysis only
   function formatAnalysis(text) {
     if (!text) return '';
-    // Convert **bold** markers to styled spans
     text = text.replace(/\*\*([^*]+)\*\*/g, '<strong class="cq-analysis-highlight">$1</strong>');
-    // Remove any remaining stray asterisks
     text = text.replace(/\*+/g, '');
-    // Split into paragraphs on double newlines
-    const paragraphs = text.split(/\n\n+/);
-    return paragraphs.map(p => {
+    return text.split(/\n\n+/).map(function (p) {
       p = p.trim();
       if (!p) return '';
-      // "- Steve" sign-off
-      if (p.match(/^[-–]\s*Steve/i)) {
-        return `<p class="cq-analysis-signoff">${p}</p>`;
-      }
-      // "Steve says:" opener
-      if (p.match(/^Steve says:/i)) {
-        return `<p class="cq-analysis-opener">${p}</p>`;
-      }
-      return `<p class="cq-analysis-para">${p.replace(/\n/g, '<br>')}</p>`;
+      if (p.match(/^[-–]\s*Steve/i))  return '<p class="cq-analysis-signoff">' + p + '</p>';
+      if (p.match(/^Steve says:/i))   return '<p class="cq-analysis-opener">'  + p + '</p>';
+      return '<p class="cq-analysis-para">' + p.replace(/\n/g, '<br>') + '</p>';
     }).join('');
   }
 
+  /* ================================================================
+     MOUNT
+     ================================================================ */
   function mount() {
-    if (step === "loading") {
-      root.textContent = "Loading...";
-    } else if (step === "input") {
-      renderInput();
-    } else if (step === "rank") {
-      renderRank();
-    } else if (step === "reasons") {
-      renderReasons();
-    } else if (step === "regenerating") {
-      renderRegenerating();
-    } else {
-      renderResults();
-    }
-  }
-
-  async function renderRegenerating() {
-    const overlay = showLoadingOverlay("Generating your analysis...");
-    try {
-      const res = await fetch(cfg.restUrlSubmit, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-WP-Nonce": cfg.nonce || "" },
-        credentials: "same-origin",
-        body: JSON.stringify({ jobs, ranking, reasons, step: "generate_analysis" })
-      });
-      const raw = await res.text();
-      let j = null;
-      try { j = raw ? JSON.parse(raw) : null; } catch(e) { /* ignore */ }
-      hideLoadingOverlay(overlay);
-      if (j && j.ok) {
-        resultData = j;
-        step = "results";
-        mount();
-      } else {
-        throw new Error((j && j.error) || "Generation failed");
-      }
-    } catch (err) {
-      hideLoadingOverlay(overlay);
-      console.error("Regeneration error:", err);
-      step = "reasons";
-      mount();
-    }
+    if      (step === 'loading')      root.textContent = 'Loading...';
+    else if (step === 'input')        renderInput();
+    else if (step === 'rank')         renderRank();
+    else if (step === 'reasons')      renderReasons();
+    else if (step === 'regenerating') renderRegenerating();
+    else                              renderResults();
   }
 
   checkStatus();
