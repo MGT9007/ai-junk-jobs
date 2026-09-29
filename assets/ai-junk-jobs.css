@@ -293,8 +293,8 @@
   letter-spacing: 0.02em;
 }
 
-/* ── MBTI note ───────────────────────────────────────────────────── */
-.cq-mbti-note {
+/* ── Personality note ─────────────────────────────────────────────── */
+.cq-personality-note {
   background: rgba(147, 51, 234, 0.12);
   border-left: 3px solid var(--accent-2);
   padding: 12px 14px;
@@ -586,4 +586,191 @@
   grid-template-columns: 1fr 1fr;
   gap: 10px;
   margin-top: 8px;
+}
+/* ================================================================
+   v5.0.0 — Dream & Junk Jobs
+   ================================================================ */
+.cq-half-pill {
+  font-family: var(--font-heading);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-3);
+  border: 1px solid rgba(255, 208, 0, 0.4);
+  border-radius: 999px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+.cq-note {
+  background: rgba(0, 212, 255, 0.08);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  padding: 10px 14px;
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.cq-notice {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+.cq-notice--warn  { border-color: #F59E0B; background: rgba(245, 158, 11, 0.1); color: #FCD34D; }
+.cq-notice--break { border-color: var(--accent); background: rgba(0, 212, 255, 0.08); color: var(--text-light); }
+
+.cq-actions-center { justify-content: center; }
+
+/* Halfway card */
+.cq-halfway { text-align: center; }
+.cq-halfway .cq-title { margin: 6px 0 8px; }
+.cq-halfway-emoji { font-size: 44px; line-height: 1; margin-top: 8px; }
+
+/* Results tabs — full-width segmented control */
+.cq-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin: 6px 0 18px;
+  background: var(--bg-inner);
+  border: 1px solid var(--border-dim);
+  border-radius: 10px;
+}
+.cq-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 10px 6px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-heading);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cq-tab.is-active { background: var(--accent); color: var(--bg-page); }
+.cq-tab-panel { display: none; }
+.cq-tab-panel.is-active { display: block; }
+
+.cq-section-title {
+  font-family: var(--font-heading);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+  margin: 22px 0 10px;
+}
+
+/* "You, the …" card */
+.cq-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(147, 51, 234, 0.1);
+}
+.cq-profile-card img { width: 64px; height: 64px; object-fit: contain; flex-shrink: 0; }
+.cq-profile-name   { font-family: var(--font-heading); font-size: 18px; font-weight: 700; color: var(--text-light); }
+.cq-profile-family { font-size: 13px; color: var(--text-muted); }
+.cq-unlock-card {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* Chips */
+.cq-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 0; }
+.cq-chips .cq-chip {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 1.3;
+  border: 1px solid var(--border);
+  background: var(--bg-inner);
+  color: var(--text);
+}
+.cq-chips .cq-chip--req    { border-color: rgba(0, 255, 136, 0.45); color: #7CFFC4; }
+.cq-chips .cq-chip--agree  { border-color: rgba(16, 185, 129, 0.5); }
+.cq-chips .cq-chip--twist  { border-color: rgba(255, 208, 0, 0.5); color: var(--accent-3); }
+.cq-chips .cq-chip--starter { cursor: pointer; font-family: var(--font-body); text-align: left; }
+.cq-chips .cq-chip--starter:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Stack-up rows */
+.cq-stack { display: flex; flex-direction: column; gap: 8px; }
+.cq-stack-row {
+  padding: 10px 12px;
+  border: 1px solid var(--border-dim);
+  border-radius: 10px;
+  background: var(--bg-inner);
+}
+.cq-stack-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: space-between; }
+.cq-stack-name { font-family: var(--font-heading); font-weight: 700; color: var(--text-light); }
+
+.cq-band {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-light);
+}
+.cq-band--natural { border-color: rgba(16, 185, 129, 0.6); }
+.cq-band--good    { border-color: rgba(59, 130, 246, 0.6); }
+.cq-band--stretch { border-color: rgba(168, 85, 247, 0.6); }
+.cq-job-result-header .cq-band { margin-left: auto; }
+
+.cq-ticks { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 8px; font-size: 13px; }
+.cq-tick--met   { color: #00FF88; }
+.cq-tick--miss  { color: var(--text-muted); }
+.cq-tick-count  { margin-left: auto; font-weight: 700; color: var(--accent-3); }
+.cq-job-result-block .cq-ticks,
+.cq-job-result-block .cq-chips,
+.cq-job-result-block .cq-fit { padding: 0 14px 12px; }
+
+.cq-twist {
+  margin: 0 0 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(255, 208, 0, 0.07);
+  border: 1px solid rgba(255, 208, 0, 0.3);
+  font-size: 14px;
+  color: var(--text);
+}
+
+.cq-fit { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; font-size: 14px; color: var(--text); }
+
+/* Careers chat */
+.cq-chat-card {
+  margin-top: 24px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-inner);
+}
+.cq-chat-card .cq-section-title { margin-top: 0; }
+.cq-starters { margin-bottom: 12px; }
+.cq-chatwrap { min-width: 0; }
+
+@media (max-width: 480px) {
+  .cq-tab { font-size: 12px; padding: 9px 2px; }
+  .cq-stack-top { justify-content: flex-start; }
+  .cq-tick-count { margin-left: 0; }
+  .cq-header { flex-wrap: wrap; gap: 6px; }
+  .cq-profile-card img { width: 52px; height: 52px; }
 }
