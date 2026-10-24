@@ -2,18 +2,18 @@
 /**
  * Plugin Name: AI Dream & Junk Jobs
  * Description: Week 2 Task 2. Students enter, rank and explain 5 dream jobs and 5 junk jobs, then get a combined SteveGPT results screen with personality fit, requirement ticks, plot twists and a careers chat. Use shortcode [ai_junk_jobs] (alias [ai_dream_junk_jobs]).
- * Version: 5.0.0
+ * Version: 6.0.0
  * Author: MisterT9007
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-require_once __DIR__ . '/includes/mfsd-concern-flags.php';
+require_once __DIR__ . '/includes/mfsd-shared-helpers.php'; // concern flags now live in mfsd-safeguarding
 require_once __DIR__ . '/includes/class-mfsd-parent-tabs.php';
 require_once __DIR__ . '/includes/class-junk-jobs-ai.php';
 
 class AI_Junk_Jobs {
-    const VERSION      = '5.0.0';
+    const VERSION      = '6.0.0';
     const TABLE        = 'mfsd_ai_junk_jobs_results';
     const NONCE_ACTION = 'wp_rest';
     const TASK_SLUG    = 'junk_jobs';
@@ -22,8 +22,8 @@ class AI_Junk_Jobs {
     const MAP_PARENT   = 'mfsd_stevegpt_map_junk_jobs_parent_summary';
     const MAP_CHAT     = 'mfsd_stevegpt_map_junk_jobs_chat';
 
-    const OPT_URGENT   = 'ai_junk_jobs_urgent_keywords';
-    const OPT_CONCERN  = 'ai_junk_jobs_concern_keywords';
+    // Old per-task keyword options (ai_junk_jobs_urgent_keywords / _concern_keywords) are no longer read:
+    // MFSD Safeguarding migrated them into its central word list on activation.
 
     const UNAVAILABLE_MSG = "Steve's having a quick break. Your answers are saved, so try again in a few minutes.";
 
@@ -40,9 +40,9 @@ class AI_Junk_Jobs {
     }
 
     public function register_stevegpt_slots( array $slots ): array {
-        $slots[] = array( 'plugin' => 'Dream & Junk Jobs', 'role' => 'Summary (dream + junk + conclusion)', 'option' => self::MAP_SUMMARY, 'tokens' => array() );
-        $slots[] = array( 'plugin' => 'Dream & Junk Jobs', 'role' => 'Parent summary',                      'option' => self::MAP_PARENT,  'tokens' => array() );
-        $slots[] = array( 'plugin' => 'Dream & Junk Jobs', 'role' => 'Careers chatbot',                     'option' => self::MAP_CHAT,    'tokens' => array() );
+        $slots[] = array( 'plugin' => 'Dream & Junk Jobs', 'role' => 'Summary (dream + junk + conclusion)', 'option' => self::MAP_SUMMARY, 'tokens' => array(), 'task_slug' => self::TASK_SLUG );
+        $slots[] = array( 'plugin' => 'Dream & Junk Jobs', 'role' => 'Parent summary',                      'option' => self::MAP_PARENT,  'tokens' => array(), 'task_slug' => self::TASK_SLUG, 'audience' => 'parent' );
+        $slots[] = array( 'plugin' => 'Dream & Junk Jobs', 'role' => 'Careers chatbot',                     'option' => self::MAP_CHAT,    'tokens' => array(), 'task_slug' => self::TASK_SLUG );
         return $slots;
     }
 
@@ -57,7 +57,7 @@ class AI_Junk_Jobs {
         $saved_version = get_option( 'ai_junk_jobs_version' );
         if ( $saved_version !== self::VERSION ) {
             $this->maybe_upgrade_table();
-            mfsd_concern_flags_install();
+            if ( function_exists( 'mfsd_concern_flags_install' ) ) mfsd_concern_flags_install();
             flush_rewrite_rules();
             update_option( 'ai_junk_jobs_version', self::VERSION );
             error_log( 'AI Dream & Junk Jobs: Upgraded to version ' . self::VERSION );
@@ -142,7 +142,7 @@ class AI_Junk_Jobs {
 
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         dbDelta( $sql );
-        mfsd_concern_flags_install();
+        if ( function_exists( 'mfsd_concern_flags_install' ) ) mfsd_concern_flags_install();
         flush_rewrite_rules();
     }
 
@@ -169,6 +169,10 @@ class AI_Junk_Jobs {
     public function shortcode( $atts, $content = null ) {
         if ( ! is_user_logged_in() ) {
             return '<p style="text-align:center;padding:40px;color:#555;">Please log in to see Dream &amp; Junk Jobs.</p>';
+        }
+        // Safeguarding is required: without it, free text can't be checked, so the task is closed.
+        if ( ! function_exists( 'mfsd_safeguarding_check' ) ) {
+            return '<p style="text-align:center;padding:40px;color:#555;">' . esc_html( self::UNAVAILABLE_MSG ) . '</p>';
         }
         $handle    = 'ai-junk-jobs';
         $viewer_id = $this->get_current_user_id();
@@ -283,6 +287,9 @@ class AI_Junk_Jobs {
         if ( ! is_user_logged_in() ) {
             return new WP_Error( 'unauthorized', 'You must be logged in', array( 'status' => 401 ) );
         }
+        if ( ! function_exists( 'mfsd_safeguarding_check' ) ) {
+            return new WP_Error( 'safeguarding_unavailable', self::UNAVAILABLE_MSG, array( 'status' => 503 ) );
+        }
         return true;
     }
 
@@ -388,19 +395,11 @@ class AI_Junk_Jobs {
         return $this->profile( $user_id ) ? 'ok' : 'none';
     }
 
-    private function keyword_lists(): array {
-        return array(
-            mfsd_concern_keyword_list( (string) get_option( self::OPT_URGENT,  mfsd_concern_default_keywords( 'urgent' ) ) ),
-            mfsd_concern_keyword_list( (string) get_option( self::OPT_CONCERN, mfsd_concern_default_keywords( 'concern' ) ) ),
-        );
-    }
-
-    /** Keyword pre-check on every item + reason (before any AI call). */
+    /** Keyword pre-check on every item + reason (before any AI call), against the central MFSD Safeguarding list. */
     private function keyword_hits( array $reasons ): array {
-        list( $urgent, $concern ) = $this->keyword_lists();
         $hits = array();
         foreach ( $reasons as $item => $reason ) {
-            $hit = mfsd_concern_keyword_check( $item . ' ' . $reason, $urgent, $concern );
+            $hit = mfsd_concern_keyword_check( $item . ' ' . $reason, null, null, self::TASK_SLUG );
             if ( $hit ) $hits[ $item ] = $hit;
         }
         return $hits;
@@ -413,9 +412,30 @@ class AI_Junk_Jobs {
             $ai = $ai_sev[ $item ] ?? '';
             if ( ! $kw && $ai === '' ) continue;
             $trigger  = ( $kw && $ai !== '' ) ? 'both' : ( $kw ? 'keyword' : 'ai' );
-            $severity = ( $ai === 'urgent' || ( $kw && $kw['severity'] === 'urgent' ) ) ? 'urgent' : 'concern';
-            mfsd_raise_concern_flag( $user_id, self::TASK_SLUG, $item, $reason, $severity, $trigger, $kw ? $kw['matched'] : '' );
+            $severity = self::top_severity( $ai, $kw ? $kw['severity'] : '' ); // moderation > urgent > concern
+            mfsd_raise_concern_flag( $user_id, self::TASK_SLUG, $item, $reason, $severity, $trigger, $kw ? $kw['matched'] : '', array( 'field' => 'reason' ) );
         }
+    }
+
+    /**
+     * Items with an unreleased MODERATION flag in this task. Their words (and Steve's reply to them)
+     * must never reach a parent — not in the parent summary prompt, not in the "{Child}'s view" tab —
+     * until an admin releases the flag (Safeguarding spec, moderation tier).
+     */
+    private function withheld_items( int $user_id ): array {
+        if ( ! function_exists( 'mfsd_get_concern_flags' ) ) return array();
+        $out = array();
+        foreach ( mfsd_get_concern_flags( $user_id, self::TASK_SLUG, false, true ) as $f ) {
+            if ( ( $f['severity'] ?? '' ) === 'moderation' && empty( $f['released_at'] ) ) $out[] = (string) $f['item_text'];
+        }
+        return array_values( array_unique( $out ) );
+    }
+
+    const WITHHELD_TEXT = '(not shown)';
+
+    private static function top_severity( string $a, string $b ): string {
+        $rank = array( 'moderation' => 3, 'urgent' => 2, 'concern' => 1 );
+        return ( $rank[ $a ] ?? 0 ) >= ( $rank[ $b ] ?? 0 ) ? ( $a !== '' ? $a : 'concern' ) : $b;
     }
 
     private static function unavailable(): WP_REST_Response {
@@ -503,6 +523,24 @@ class AI_Junk_Jobs {
                 }
             }
             $out['needs_regeneration'] = $regen;
+
+            // Parent's "{Child}'s view": hide the words (and Steve's reply) for withheld items.
+            if ( $is_parent ) {
+                $hide = $this->withheld_items( $user_id );
+                if ( $hide ) {
+                    $dr = (array) $out['dream_reasons']; $jr = (array) $out['reasons'];
+                    foreach ( $hide as $item ) {
+                        if ( array_key_exists( $item, $dr ) ) $dr[ $item ] = self::WITHHELD_TEXT;
+                        if ( array_key_exists( $item, $jr ) ) $jr[ $item ] = self::WITHHELD_TEXT;
+                        $di = array_search( $item, (array) $out['dream_ranking'], true );
+                        if ( $di !== false ) $out['dream_summaries'][ $di ] = '';
+                        $ji = array_search( $item, (array) $out['ranking'], true );
+                        if ( $ji !== false ) $out['job_summaries'][ $ji ] = '';
+                    }
+                    $out['dream_reasons'] = (object) $dr;
+                    $out['reasons']       = (object) $jr;
+                }
+            }
         }
 
         // Prefill the dream half from old Dream Jobs data (§2).
@@ -741,7 +779,7 @@ class AI_Junk_Jobs {
         $dream_ranking = self::dec( $row['dream_ranking_json'] );
         $dream_reasons = self::dec( $row['dream_reasons_json'] );
         $fit           = $profile ? self::dec( $row['fit_json'] ) : array();
-        $dream_flagged = array_column( mfsd_get_concern_flags( $user_id, self::TASK_SLUG ), 'item_text' );
+        $dream_flagged = array_column( mfsd_get_concern_flags( $user_id, self::TASK_SLUG, false, true ), 'item_text' ); // incl. moderation
 
         $dream_lines_short = array();
         foreach ( $dream_ranking as $i => $dj ) {
@@ -936,6 +974,10 @@ class AI_Junk_Jobs {
         $match    = self::dec( $row['match_json'] );
         $dreason  = self::dec( $row['dream_reasons_json'] );
         $jreason  = self::dec( $row['reasons_json'] );
+        foreach ( $this->withheld_items( $student_id ) as $item ) { // never send withheld words to the parent summary
+            if ( isset( $dreason[ $item ] ) ) $dreason[ $item ] = self::WITHHELD_TEXT;
+            if ( isset( $jreason[ $item ] ) ) $jreason[ $item ] = self::WITHHELD_TEXT;
+        }
 
         $p  = "You are SteveGPT, Steve Sallis's coach, writing for the PARENT of {$child}" . ( $age ? ", aged {$age}" : '' ) . ". ";
         $p .= "Write in clear, warm adult language (not student language), UK English, about 300 words. ";
@@ -958,7 +1000,8 @@ class AI_Junk_Jobs {
 
         $p .= "\nUse these section markers, in this order:\n";
         if ( $flags ) {
-            $urgent = in_array( 'urgent', array_column( $flags, 'severity' ), true );
+            // Parent-visible flags only: a 'moderation' one here has been released, and is handled as urgent.
+            $urgent = (bool) array_intersect( array( 'urgent', 'moderation' ), array_column( $flags, 'severity' ) );
             $p .= "[SECTION:Something to be aware of] (ALWAYS FIRST) — {$child} wrote the following, which may be worth a gentle conversation:\n";
             foreach ( $flags as $f ) {
                 $p .= "- {$f['item_text']}: \"{$f['reason_text']}\"\n";
@@ -1002,8 +1045,6 @@ class AI_Junk_Jobs {
              && check_admin_referer( 'ai_junk_jobs_settings' ) ) {
             update_option( 'ai_junk_jobs_course_management', isset( $_POST['course_management'] ) ? 1 : 0 );
             update_option( 'ai_junk_jobs_save_summary',      isset( $_POST['save_summary'] )      ? 1 : 0 );
-            update_option( self::OPT_URGENT,  sanitize_textarea_field( wp_unslash( $_POST['urgent_keywords'] ?? '' ) ) );
-            update_option( self::OPT_CONCERN, sanitize_textarea_field( wp_unslash( $_POST['concern_keywords'] ?? '' ) ) );
             echo '<div class="notice notice-success"><p>Settings saved.</p></div>';
         }
 
@@ -1034,8 +1075,6 @@ class AI_Junk_Jobs {
 
         $cm           = get_option( 'ai_junk_jobs_course_management', 1 );
         $save_summary = get_option( 'ai_junk_jobs_save_summary', 1 );
-        $urgent_kw    = get_option( self::OPT_URGENT,  mfsd_concern_default_keywords( 'urgent' ) );
-        $concern_kw   = get_option( self::OPT_CONCERN, mfsd_concern_default_keywords( 'concern' ) );
         $missing      = mfsd_steve_missing_mappings( array( self::MAP_SUMMARY, self::MAP_PARENT, self::MAP_CHAT ) );
         $students     = $wpdb->get_results(
             "SELECT j.user_id, j.status, j.intro_text, j.analysis, j.dream_items_json, j.dream_summary_1, j.parent_ai_summary, u.display_name
@@ -1050,6 +1089,9 @@ class AI_Junk_Jobs {
                 <div class="notice notice-warning">
                     <p><strong>MFSD Ordering Utility</strong> is not active — course management features will not function until it is activated.</p>
                 </div>
+            <?php endif; ?>
+            <?php if ( ! function_exists( 'mfsd_safeguarding_check' ) ): ?>
+                <div class="notice notice-error"><p><strong>MFSD Safeguarding is not active.</strong> Students can't submit answers until it is.</p></div>
             <?php endif; ?>
             <?php if ( ! class_exists( 'SteveGPT_Chatbot' ) ): ?>
                 <div class="notice notice-error"><p><strong>SteveGPT is not active.</strong> Students will see the "quick break" message and can't complete the task.</p></div>
@@ -1081,17 +1123,9 @@ class AI_Junk_Jobs {
                         </td>
                     </tr>
                     <tr>
-                        <th>Urgent keywords</th>
+                        <th>Safeguarding words</th>
                         <td>
-                            <textarea name="urgent_keywords" rows="6" cols="60"><?php echo esc_textarea( $urgent_kw ); ?></textarea>
-                            <p class="description">One per line, whole word, case-insensitive. A match raises an <strong>urgent</strong> concern flag for the parent.</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Concern keywords</th>
-                        <td>
-                            <textarea name="concern_keywords" rows="8" cols="60"><?php echo esc_textarea( $concern_kw ); ?></textarea>
-                            <p class="description">One per line. A match raises a <strong>concern</strong> flag ("worth a look"). Junk-job reasons often mention family — review with that in mind.</p>
+                            <p class="description">Urgent, moderation and concern words are managed centrally in <a href="<?php echo esc_url( admin_url( 'admin.php?page=mfsd-sg-words' ) ); ?>">MFSD Safeguarding → Word list</a> (filter by "Dream &amp; Junk Jobs" to see what this task checks).</p>
                         </td>
                     </tr>
                 </table>

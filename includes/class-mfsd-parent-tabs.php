@@ -163,7 +163,8 @@ class MFSD_Parent_Tabs {
         $urgent = false;
         $items  = '';
         foreach ( $flags as $f ) {
-            if ( ( $f['severity'] ?? '' ) === 'urgent' ) $urgent = true;
+            // Callers pass parent-visible flags only, so 'moderation' here means released: treat as urgent.
+            if ( in_array( $f['severity'] ?? '', array( 'urgent', 'moderation' ), true ) ) $urgent = true;
             $items .= '<li><strong>' . esc_html( $f['item_text'] ) . '</strong>';
             if ( ! empty( $f['reason_text'] ) ) $items .= ': <em>"' . esc_html( $f['reason_text'] ) . '"</em>';
             $items .= '</li>';

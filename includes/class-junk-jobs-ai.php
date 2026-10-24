@@ -58,7 +58,7 @@ class AI_Junk_Jobs_AI {
                 . "Rules: bands are about personality only; stretch always has a bridge; 'close to the middle' preferences "
                 . "can't be the only reason for stretch; never use personality codes, 'MBTI' or 'Myers-Briggs'.\n";
         }
-        $p .= "\n" . mfsd_concern_safeguarding_rule();
+        $p .= "\n" . mfsd_concern_safeguarding_rule( 'junk_jobs' );
         return $p;
     }
 
@@ -112,7 +112,7 @@ class AI_Junk_Jobs_AI {
             $p .= "[CHECK:agrees|twist|neutral] — a twist is when the job actually uses their strengths\n"
                 . "If a dream job shares strengths with this junk job, mention it in the twist sentence.\n";
         }
-        $p .= "\n" . mfsd_concern_safeguarding_rule();
+        $p .= "\n" . mfsd_concern_safeguarding_rule( 'junk_jobs' );
         return $p;
     }
 
