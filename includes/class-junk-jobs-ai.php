@@ -58,13 +58,16 @@ class AI_Junk_Jobs_AI {
                 . "Rules: bands are about personality only; stretch always has a bridge; 'close to the middle' preferences "
                 . "can't be the only reason for stretch; never use personality codes, 'MBTI' or 'Myers-Briggs'.\n";
         }
-        $p .= "\n" . mfsd_concern_safeguarding_rule( 'junk_jobs' );
+        // The safeguarding block is appended by SteveGPT 14 from the call's context (Prompt Layer §3.2).
         return $p;
     }
 
-    /** @return array ['text' => string, 'fit' => ?array, 'concern' => ''|'concern'|'urgent'] */
-    public static function parse_dream( string $raw, bool $has_profile ): array {
-        $concern = mfsd_concern_parse_marker( $raw );
+    /**
+     * $concern: the reply's safeguarding severity from $bot->last_safeguarding_severity() ('' = none).
+     * A safety reply carries no FIT markers worth reading.
+     * @return array ['text' => string, 'fit' => ?array, 'concern' => string]
+     */
+    public static function parse_dream( string $raw, bool $has_profile, string $concern = '' ): array {
         $fit     = null;
         if ( $has_profile && $concern === '' ) {
             $band = strtolower( self::marker( $raw, 'FIT' ) );
@@ -112,13 +115,11 @@ class AI_Junk_Jobs_AI {
             $p .= "[CHECK:agrees|twist|neutral] — a twist is when the job actually uses their strengths\n"
                 . "If a dream job shares strengths with this junk job, mention it in the twist sentence.\n";
         }
-        $p .= "\n" . mfsd_concern_safeguarding_rule( 'junk_jobs' );
         return $p;
     }
 
     /** @return array ['text', 'req' => string, 'check' => ''|'agrees'|'twist'|'neutral', 'concern'] */
-    public static function parse_junk( string $raw, bool $has_profile ): array {
-        $concern = mfsd_concern_parse_marker( $raw );
+    public static function parse_junk( string $raw, bool $has_profile, string $concern = '' ): array {
         $req     = '';
         $check   = '';
         if ( $concern === '' ) {
@@ -147,15 +148,39 @@ class AI_Junk_Jobs_AI {
             . "2) Name the dream job that best meets their requirements AND is the most natural fit (if the same, celebrate it; if different, explain the trade-off kindly).\n"
             . "3) If there are plot twists, one sentence on how assumptions about jobs aren't always right.\n"
             . "4) Band words used must match the fit bands above exactly (Natural fit / Good fit + stretch / Stretch zone).\n"
-            . "5) Exactly 3 one-percent actions this week: one skill, one explore, one habit.\n"
+            . "5) Exactly 3 one-percent actions this week: one skill, one explore, one habit. Each must be small, doable within a week, safe, "
+            . "free or very low-cost, and something the student could show or tell a parent about.\n"
             . "6) Sign off \"- Steve\".\n"
             . "No headers, no markdown. Then for each dream job output one line:\n"
-            . "[MATCH:{dream job}|{requirements met, comma-separated}|{requirements missing, comma-separated}]";
+            . "[MATCH:{dream job}|{requirements met, comma-separated}|{requirements missing, comma-separated}]\n"
+            . "Then output the three actions again, one per line, each under 120 characters, written as the student's own plan "
+            . "(e.g. \"Ask a vet what the job is really like\"):\n"
+            . "[ACTION:skill|{action}]\n[ACTION:explore|{action}]\n[ACTION:habit|{action}]";
         return $p;
     }
 
-    /** @return array ['text' => string, 'match' => [job => ['met'=>[], 'missing'=>[]]]] */
+    /** @return array ['text' => string, 'match' => [job => ['met'=>[], 'missing'=>[]]], 'actions' => [kind => text]] */
     public static function parse_conclusion( string $raw, array $dream_ranking, array $requirements ): array {
+        return array( 'text' => self::strip_markers( $raw ), 'match' => self::parse_match( $raw, $dream_ranking, $requirements ), 'actions' => self::parse_actions( $raw ) );
+    }
+
+    /** [ACTION:skill|…] lines → {skill, explore, habit}; malformed or over-long lines are dropped. */
+    public static function parse_actions( string $raw ): array {
+        $out = array();
+        if ( preg_match_all( '/\[\s*ACTION\s*:\s*(skill|explore|habit)\s*\|([^\]]*)\]/i', $raw, $m, PREG_SET_ORDER ) ) {
+            foreach ( $m as $a ) {
+                $kind = strtolower( $a[1] );
+                $text = trim( sanitize_text_field( $a[2] ), " \"'" );
+                if ( $text === '' || isset( $out[ $kind ] ) || mb_strlen( $text ) > 140 ) continue;
+                $out[ $kind ] = $text;
+            }
+        }
+        $ordered = array();
+        foreach ( array( 'skill', 'explore', 'habit' ) as $k ) if ( isset( $out[ $k ] ) ) $ordered[ $k ] = $out[ $k ];
+        return $ordered;
+    }
+
+    private static function parse_match( string $raw, array $dream_ranking, array $requirements ): array {
         $match = array();
         if ( preg_match_all( '/\[\s*MATCH\s*:([^\]]*)\]/i', $raw, $m ) ) {
             foreach ( $m[1] as $line ) {
@@ -168,7 +193,7 @@ class AI_Junk_Jobs_AI {
                 );
             }
         }
-        return array( 'text' => self::strip_markers( $raw ), 'match' => $match );
+        return $match;
     }
 
     /** Matches AI requirement names case-insensitively (with or without "I need"); drops unknowns. */

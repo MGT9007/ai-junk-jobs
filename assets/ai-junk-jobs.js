@@ -7,6 +7,8 @@
 
   const MIN_WORDS   = cfg.minWords || 30;
   const PARENT_VIEW = !!cfg.parentView;
+  const REDUCED     = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const KINDS       = { skill: 'Skill', explore: 'Explore', habit: 'Habit', own: 'Write my own' };
   const chatSource  = document.getElementById('ai-junk-jobs-chat-source');
 
   // Two halves share the same three screens (enter → rank → why).
@@ -198,7 +200,8 @@
       isLegacy = !!d.needs_dream_half;
 
       if (PARENT_VIEW) {
-        step = (d.status === 'completed' && !isLegacy) ? 'results' : 'parent_waiting';
+        // The server sends no jobs to a parent until they have played (spec §16.4).
+        step = (d.status === 'completed' && !isLegacy && !d.gated) ? 'results' : 'parent_waiting';
       } else if (isLegacy || d.status === 'not_started') {
         if (!state.dream.items.length && d.prefill) {
           state.dream.items   = d.prefill.items   || [];
@@ -215,7 +218,7 @@
         step = 'junk_rank';
       } else if (d.status === 'reasons') {
         step = 'junk_reasons';
-      } else if (d.status === 'completed') {
+      } else if (d.status === 'completed' || d.status === 'commit') {
         step = d.needs_regeneration ? 'regenerating' : 'results';
       } else {
         step = 'dream_input';
@@ -575,9 +578,23 @@
     card.appendChild(el('div', 'cq-halfway-emoji', '🎉'));
     card.appendChild(el('h2', 'cq-title', "Nice one, Steve's got your dream jobs."));
     card.appendChild(el('p', 'cq-sub', "Now the fun bit: jobs you'd hate!"));
+    const go = el('button', 'cq-btn', "Let's go →");
+    go.type = 'button';
+    // §2.1: optional video; the button is always visible, so the video never blocks.
+    const hv = cfg.halfwayVideo;
+    if (hv && hv.url) {
+      const v = document.createElement('video');
+      v.className = 'cq-halfway-video';
+      v.controls = true;
+      v.setAttribute('playsinline', '');
+      v.preload = 'metadata';
+      if (hv.poster) v.poster = hv.poster;
+      v.src = hv.url;
+      v.addEventListener('ended', function () { go.focus(); });
+      card.appendChild(v);
+    }
     card.appendChild(el('p', 'cq-muted', "Next you'll pick 5 jobs you would NOT want to do. Your dream job results are saved — you'll see everything together at the end."));
     const actions = el('div', 'cq-actions cq-actions-center');
-    const go = el('button', 'cq-btn', "Let's go →");
     go.onclick = function () { step = 'junk_input'; mount(); };
     actions.appendChild(go);
     card.appendChild(actions);
@@ -626,7 +643,8 @@
     const name   = cfg.childName || 'Your child';
     const labels = {
       not_started: 'Not started yet', dream_in_progress: 'Entering dream jobs', dream_reasons: 'Writing dream job reasons',
-      dream_done: 'Dream half done', in_progress: 'Entering junk jobs', reasons: 'Writing junk job reasons', completed: 'Dream half still to do'
+      dream_done: 'Dream half done', in_progress: 'Entering junk jobs', reasons: 'Writing junk job reasons',
+      commit: 'Choosing their action', completed: 'Dream half still to do'
     };
     const wrap = el('div', 'cq-wrap');
     const card = el('div', 'cq-card');
@@ -665,6 +683,17 @@
   }
 
   function renderBigPicture(panel, reqs) {
+    if (needsCommitment()) {
+      const banner = el('button', 'cq-commit-banner');
+      banner.type = 'button';
+      banner.appendChild(el('strong', null, 'One last step to finish: '));
+      banner.appendChild(document.createTextNode('pick your one thing to do this week ↓'));
+      banner.onclick = function () {
+        const t = document.getElementById('cq-commit-panel');
+        if (t) { t.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth', block: 'start' }); const f = t.querySelector('button, textarea'); if (f) f.focus({ preventScroll: true }); }
+      };
+      panel.appendChild(banner);
+    }
     if (data.intro_text) panel.appendChild(steveBox(data.intro_text, 'cq-analysis-opener-box'));
 
     // "You, the …" card
@@ -723,6 +752,13 @@
       panel.appendChild(steveBox(data.conclusion, 'cq-conclusion-box'));
     }
 
+    renderCommitment(panel);
+
+    (data.guesses || []).forEach(function (g) {
+      panel.appendChild(el('div', 'cq-guess-line', '🃏 ' + g.name + ' guessed ' + g.score + ' of ' + g.total + ' of your jobs.'
+        + (g.coins ? ' You earned ' + g.coins + ' bonus coins!' : '')));
+    });
+
     if (data.also_like && data.also_like.length) {
       panel.appendChild(el('h3', 'cq-section-title', 'Jobs people like you often enjoy'));
       const chips = el('div', 'cq-chips');
@@ -763,7 +799,7 @@
     });
 
     // 7a. Careers chat — moved (never copied) so the widget keeps its event bindings.
-    if (!PARENT_VIEW && cfg.hasChat && chatSource) {
+    if (!PARENT_VIEW && cfg.hasChat && chatSource && data.status === 'completed') {
       chatWidget = chatWidget || chatSource.querySelector('.stevegpt-chatbot-container');
       const widget = chatWidget;
       if (widget) {
@@ -873,6 +909,355 @@
   }
 
   /* ================================================================
+     COMMITMENT (spec §15) — required; no "Not now"
+     ================================================================ */
+  function needsCommitment() {
+    return !PARENT_VIEW && (data.status === 'commit' || (data.status === 'completed' && !data.chosen_action));
+  }
+
+  const CARD_STATUS = { open: 'On your home screen', checked_in: 'Waiting for a grown-up to confirm', validated: 'Done — confirmed!',
+    carried: 'Carried into this week', not_yet: 'Not yet', dropped: 'Dropped', expired: 'Expired' };
+
+  function renderCommitment(panel) {
+    const box = el('div', 'cq-commit');
+    box.id = 'cq-commit-panel';
+
+    if (!needsCommitment()) {
+      if (!data.chosen_action) return;
+      box.appendChild(el('h3', 'cq-section-title', PARENT_VIEW ? 'Their action' : 'Your action'));
+      const line = el('div', 'cq-commit-done');
+      line.appendChild(el('span', 'cq-commit-kind', KINDS[data.chosen_action] || 'Action'));
+      line.appendChild(el('span', 'cq-commit-text', data.commitment_text || ''));
+      box.appendChild(line);
+      if (data.commitment) box.appendChild(el('div', 'cq-muted', CARD_STATUS[data.commitment.status] || data.commitment.status));
+      else if (data.commitments_active === false) box.appendChild(el('div', 'cq-muted', 'Saved'));
+      panel.appendChild(box);
+      return;
+    }
+
+    const finishing = data.status === 'commit';
+    box.appendChild(el('h3', 'cq-section-title', 'Pick your one thing'));
+    box.appendChild(el('p', 'cq-sub', 'Choose one small step for this week. You can change the words to make it yours.'));
+
+    const actions = data.actions || {};
+    const kinds   = ['skill', 'explore', 'habit'].filter(function (k) { return actions[k]; }).concat(['own']);
+    const group   = el('div', 'cq-commit-options');
+    group.setAttribute('role', 'radiogroup');
+    group.setAttribute('aria-label', 'Your action');
+    let chosen = '';
+
+    const field = document.createElement('textarea');
+    field.className = 'cq-textarea cq-commit-input';
+    field.maxLength = 140;
+    field.rows = 3;
+    field.setAttribute('aria-label', 'Your action in your own words');
+    field.placeholder = 'Write your one thing (up to 140 characters)';
+    const counter = el('div', 'cq-commit-count', '0 / 140');
+    const editWrap = el('div', 'cq-commit-edit');
+    editWrap.hidden = true;
+    editWrap.appendChild(field);
+    editWrap.appendChild(counter);
+
+    const save = el('button', 'cq-btn cq-commit-save', finishing ? 'Add to my home screen and finish' : 'Add to my home screen');
+    save.type = 'button';
+    save.disabled = true;
+
+    function sync() {
+      counter.textContent = field.value.length + ' / 140';
+      save.disabled = !chosen || field.value.trim() === '';
+    }
+    field.addEventListener('input', sync);
+
+    kinds.forEach(function (k) {
+      const b = el('button', 'cq-commit-option');
+      b.type = 'button';
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', 'false');
+      b.dataset.kind = k;
+      b.appendChild(el('span', 'cq-commit-kind', KINDS[k]));
+      if (k !== 'own') b.appendChild(el('span', 'cq-commit-text', actions[k]));
+      b.onclick = function () {
+        chosen = k;
+        group.querySelectorAll('.cq-commit-option').forEach(function (x) {
+          x.classList.toggle('is-on', x === b);
+          x.setAttribute('aria-checked', x === b ? 'true' : 'false');
+        });
+        field.value = k === 'own' ? '' : String(actions[k]).slice(0, 140);
+        editWrap.hidden = false;
+        sync();
+        field.focus();
+      };
+      group.appendChild(b);
+    });
+    box.appendChild(group);
+    box.appendChild(editWrap);
+
+    const act = el('div', 'cq-actions');
+    act.appendChild(save);
+    box.appendChild(act);
+
+    save.onclick = async function () {
+      save.disabled = true;
+      try {
+        const res = await post({ step: 'save_commitment', kind: chosen, text: field.value.trim() });
+        if (!res || res.ok === false) throw new Error((res && res.error) || 'Could not save');
+        applyData(res);
+        if (res.chat_context) chatContext = res.chat_context;
+        mount();
+        const done = document.getElementById('cq-commit-panel');
+        if (done) {
+          done.insertBefore(el('div', 'cq-notice cq-notice--ok', finishing ? '🎉 Brilliant — that\'s Dream & Junk Jobs finished! Your badges are on their way.' : '🎉 Added to your home screen!'), done.firstChild);
+          done.scrollIntoView({ behavior: REDUCED ? 'auto' : 'smooth', block: 'start' });
+        }
+      } catch (err) {
+        notice(box, err.message || 'Something went wrong. Please try again.', 'warn');
+        save.disabled = false;
+      }
+    };
+    panel.appendChild(box);
+  }
+
+  /* ================================================================
+     PARENT GUESSING GAME (spec §16)
+     ================================================================ */
+  const ANSWERS = {
+    love:    { label: 'Love it', icon: '❤️', key: 'ArrowRight' },
+    neither: { label: 'Neither', icon: '🤷', key: 'ArrowUp' },
+    hate:    { label: 'Hate it', icon: '👎', key: 'ArrowLeft' }
+  };
+  let game = null;
+  let gameKeys = null;
+
+  function guessUrl(path) {
+    return cfg.restUrlGuess + (path || '') + (path ? '' : '?student_id=' + encodeURIComponent(cfg.studentId) + '&_=' + Date.now());
+  }
+
+  function guessPost(path, body) {
+    return apiFetch(cfg.restUrlGuess + path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': cfg.nonce || '' },
+      body: JSON.stringify(Object.assign({ student_id: cfg.studentId }, body || {}))
+    });
+  }
+
+  // Answers are saved one at a time, in order, with retries (re-review: a busy server returned 409
+  // and the answer was silently dropped, leaving the parent stuck on "Answer every card first").
+  let saveChain = Promise.resolve();
+  function saveAnswer(job, a) {
+    const attempt = async function (n) {
+      try { await guessPost('/answer', { job: job, answer: a }); }
+      catch (err) {
+        if (n >= 3 || /Already finished/i.test(err.message)) { console.error('Answer not saved:', err); return; }
+        await new Promise(function (r) { setTimeout(r, 400 * (n + 1)); });
+        return attempt(n + 1);
+      }
+    };
+    saveChain = saveChain.then(function () { return attempt(0); });
+    return saveChain;
+  }
+  /** Before finishing: wait for queued saves, then re-send every answer once if the server is missing any. */
+  async function finishGame() {
+    await saveChain;
+    try { return await guessPost('/finish'); }
+    catch (err) {
+      if (!/Answer every card/i.test(err.message)) throw err;
+      Object.keys(game.answers).forEach(function (job) { saveAnswer(job, game.answers[job]); });
+      await saveChain;
+      return guessPost('/finish');
+    }
+  }
+
+  async function renderGame() {
+    root.replaceChildren(el('div', 'cq-wrap', 'Loading...'));
+    try {
+      const res = await apiFetch(guessUrl(''));
+      if (res.done) return renderReveal(res);
+      game = { deck: res.deck || [], answers: res.answers || {}, history: [], child: res.child_name || cfg.childName || 'your child' };
+      drawGameCard();
+    } catch (err) {
+      console.error('Guess error:', err);
+      root.replaceChildren(el('div', 'cq-wrap', "Sorry, the guessing game couldn't load. Please try again in a moment."));
+    }
+  }
+
+  function nextIndex() {
+    for (let i = 0; i < game.deck.length; i++) if (!game.answers[game.deck[i]]) return i;
+    return -1;
+  }
+
+  function drawGameCard() {
+    const wrap = el('div', 'cq-wrap');
+    const card = el('div', 'cq-card cq-game');
+    header(card, 'Love it, hate it or neither?');
+    const idx = nextIndex();
+    const answered = game.deck.length - game.deck.filter(function (j) { return !game.answers[j]; }).length;
+
+    const undo = el('button', 'cq-btn cq-btn-back cq-game-undo', '↶ Undo');
+    undo.type = 'button';
+    undo.disabled = !game.history.length;
+    undo.onclick = undoLast;
+
+    if (idx === -1) {
+      card.appendChild(el('p', 'cq-sub', "That's all " + game.deck.length + ' cards!'));
+      const actions = el('div', 'cq-actions');
+      actions.appendChild(undo);
+      const fin = el('button', 'cq-btn', 'See how I did →');
+      fin.type = 'button';
+      fin.onclick = async function () {
+        fin.disabled = true;
+        try { renderReveal(await finishGame()); }
+        catch (err) { notice(card, err.message, 'warn'); fin.disabled = false; }
+      };
+      actions.appendChild(fin);
+      card.appendChild(actions);
+      wrap.appendChild(card);
+      root.replaceChildren(wrap);
+      fin.focus();
+      return;
+    }
+
+    const job = game.deck[idx];
+    const q = el('p', 'cq-sub');
+    q.appendChild(document.createTextNode('Would ' + game.child + ' '));
+    q.appendChild(el('strong', null, 'love'));
+    q.appendChild(document.createTextNode(' this job, '));
+    q.appendChild(el('strong', null, 'hate'));
+    q.appendChild(document.createTextNode(' it, or is it '));
+    q.appendChild(el('strong', null, 'neither'));
+    q.appendChild(document.createTextNode('?'));
+    card.appendChild(q);
+    card.appendChild(el('div', 'cq-game-progress', (answered + 1) + ' / ' + game.deck.length));
+
+    const stage = el('div', 'cq-game-stage');
+    const jc = el('div', 'cq-game-card', job);
+    jc.setAttribute('aria-live', 'polite');
+    stage.appendChild(jc);
+    card.appendChild(stage);
+    enableSwipe(jc);
+
+    const btns = el('div', 'cq-game-buttons');
+    ['hate', 'neither', 'love'].forEach(function (a) {
+      const b = el('button', 'cq-game-btn cq-game-btn--' + a);
+      b.type = 'button';
+      b.appendChild(el('span', 'cq-game-icon', ANSWERS[a].icon));
+      b.appendChild(el('span', null, ANSWERS[a].label));
+      b.onclick = function () { answer(a); };
+      btns.appendChild(b);
+    });
+    card.appendChild(btns);
+    card.appendChild(el('p', 'cq-muted cq-game-hint', 'Swipe right for love, left for hate, up for neither — or use the buttons or arrow keys.'));
+    const actions = el('div', 'cq-actions');
+    actions.appendChild(undo);
+    card.appendChild(actions);
+    wrap.appendChild(card);
+    root.replaceChildren(wrap);
+
+    if (!gameKeys) {
+      gameKeys = function (e) {
+        if (step !== 'game' || !game || e.target.closest('input, textarea')) return;
+        const a = Object.keys(ANSWERS).find(function (k) { return ANSWERS[k].key === e.key; });
+        if (a && nextIndex() !== -1) { e.preventDefault(); answer(a); }
+      };
+      document.addEventListener('keydown', gameKeys);
+    }
+  }
+
+  function fling(a, done) {
+    const c = root.querySelector('.cq-game-card');
+    if (!c || REDUCED) return done();
+    c.classList.add('is-fling-' + a);
+    setTimeout(done, 220);
+  }
+
+  let busy = false;
+  function answer(a) {
+    if (busy) return;
+    const idx = nextIndex();
+    if (idx === -1) return;
+    const job = game.deck[idx];
+    busy = true;
+    fling(a, async function () {
+      game.answers[job] = a;
+      game.history.push(job);
+      drawGameCard();
+      busy = false;
+      saveAnswer(job, a);
+    });
+  }
+
+  async function undoLast() {
+    const job = game.history.pop();
+    if (!job) return;
+    delete game.answers[job];
+    drawGameCard();
+    saveAnswer(job, '');
+  }
+
+  function enableSwipe(card) {
+    let sx = 0, sy = 0, dx = 0, dy = 0, active = false;
+    card.addEventListener('pointerdown', function (e) {
+      active = true; sx = e.clientX; sy = e.clientY; dx = dy = 0;
+      try { card.setPointerCapture(e.pointerId); } catch (x) { /* ignore */ }
+    });
+    card.addEventListener('pointermove', function (e) {
+      if (!active) return;
+      dx = e.clientX - sx; dy = e.clientY - sy;
+      if (!REDUCED) card.style.transform = 'translate(' + dx + 'px,' + Math.min(dy, 0) + 'px) rotate(' + (dx / 20) + 'deg)';
+    });
+    function end() {
+      if (!active) return;
+      active = false;
+      card.style.transform = '';
+      if (dx > 80 && Math.abs(dx) > Math.abs(dy)) answer('love');
+      else if (dx < -80 && Math.abs(dx) > Math.abs(dy)) answer('hate');
+      else if (dy < -80) answer('neither');
+    }
+    card.addEventListener('pointerup', end);
+    card.addEventListener('pointercancel', function () { active = false; card.style.transform = ''; });
+  }
+
+  function truthLabel(c) {
+    if (c.list === 'dream') return 'Dream job #' + c.rank;
+    if (c.list === 'junk')  return 'Junk job #' + c.rank;
+    return 'Not on their lists';
+  }
+
+  function renderReveal(res) {
+    const child = res.child_name || cfg.childName || 'Your child';
+    const wrap  = el('div', 'cq-wrap');
+    const card  = el('div', 'cq-card cq-reveal');
+    header(card, 'You got ' + res.score + ' of ' + res.total + '!');
+    if (res.coins) card.appendChild(el('p', 'cq-sub', child + ' earned ' + res.coins + ' bonus coins from your guesses.'));
+
+    const surprises = (res.cards || []).filter(function (c) { return c.list !== 'decoy' && c.answer && c.answer !== c.truth; }).slice(0, 3);
+    surprises.forEach(function (c) {
+      const verb = c.answer === 'neither' ? 'not mind either way about' : c.answer;
+      card.appendChild(el('div', 'cq-twist', '😮 You thought ' + child + ' would ' + verb + ' ' + c.job + '… it\'s their #' + c.rank + ' ' + (c.list === 'dream' ? 'dream' : 'junk') + ' job!'));
+    });
+
+    const list = el('ul', 'cq-reveal-list');
+    (res.cards || []).forEach(function (c) {
+      const li = el('li', 'cq-reveal-row ' + (c.answer === c.truth ? 'is-right' : 'is-wrong'));
+      li.appendChild(el('span', 'cq-reveal-mark', c.answer === c.truth ? '✓' : '✗'));
+      li.appendChild(el('span', 'cq-reveal-job', c.job));
+      li.appendChild(el('span', 'cq-reveal-ans', 'You: ' + ((ANSWERS[c.answer] || {}).label || '—')));
+      li.appendChild(el('span', 'cq-reveal-truth', truthLabel(c)));
+      list.appendChild(li);
+    });
+    card.appendChild(list);
+
+    const actions = el('div', 'cq-actions cq-actions-center');
+    const go = el('button', 'cq-btn', 'See ' + child + "'s results →");
+    go.type = 'button';
+    go.onclick = function () { window.location.reload(); };
+    actions.appendChild(go);
+    card.appendChild(actions);
+    wrap.appendChild(card);
+    root.replaceChildren(wrap);
+    go.focus();
+  }
+
+  /* ================================================================
      PARENT PANEL (lazy — may call SteveGPT on first open)
      ================================================================ */
   async function loadParentPanel() {
@@ -904,9 +1289,10 @@
     else if (step === 'auto_analysis')  renderAutoAnalysis(false);
     else if (step === 'regenerating')   renderAutoAnalysis(data.needs_regeneration === 'dream');
     else if (step === 'parent_waiting') renderParentWaiting();
+    else if (step === 'game')           renderGame();
     else                                renderResults();
   }
 
-  checkStatus();
-  loadParentPanel();
+  if (PARENT_VIEW && cfg.parentGame) { step = 'game'; mount(); }
+  else { checkStatus(); loadParentPanel(); }
 })();

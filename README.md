@@ -175,6 +175,12 @@ Example transformations:
 
 ## Version History
 
+- **7.0.0** (24 Oct 2026, spec `techspecs/DREAM_JUNK_JOBS_TECH_SPEC_v1_3_2.md`)
+  - Required commitment step (status `commit`, `save_commitment`), `[ACTION:]` picker, Dream Jobs badge
+  - Parent guessing game (`wp_mfsd_djj_guesses`, `/guess` routes) gating the parent tabs
+  - Safeguarding prompt layer through SteveGPT 14 (contexts on every call); optional halfway video
+  - `mfsd_get_dream_junk_jobs()` getter; age range 10–14
+
 - **1.0.0** - Initial release
   - 4-screen workflow (input → rank → reasons → analysis)
   - Solutions Mindset AI reframing
