@@ -15,10 +15,8 @@ class AI_Junk_Jobs_AI {
     );
 
     public static function preamble( string $name, string $age_text ): string {
-        return "You are SteveGPT — Steve Sallis's AI careers coach using Steve's Solutions Mindset.\n"
-             . "You are writing for {$name}, {$age_text}. Speak directly to them (\"you\", \"your\"). "
-             . "Warm, encouraging, UK English, age-appropriate. "
-             . "Never use personality codes, 'MBTI' or 'Myers-Briggs'. Refer to their personality only by its character name.\n\n";
+        // 7.0.1 (12a step 4): persona, tone and code rules live in the chatbot instructions only.
+        return "This is for {$name}, {$age_text}. Speak directly to them (\"you\", \"your\").\n\n";
     }
 
     /** Personality context from mfsd_get_personality_profile() — the code is never included. */
@@ -56,7 +54,7 @@ class AI_Junk_Jobs_AI {
                 . "[STRETCH:one part that may not come naturally]\n"
                 . "[BRIDGE:one practical strategy or stepping-stone]\n"
                 . "Rules: bands are about personality only; stretch always has a bridge; 'close to the middle' preferences "
-                . "can't be the only reason for stretch; never use personality codes, 'MBTI' or 'Myers-Briggs'.\n";
+                . "can't be the only reason for stretch.\n";
         }
         // The safeguarding block is appended by SteveGPT 14 from the call's context (Prompt Layer §3.2).
         return $p;

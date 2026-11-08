@@ -2,7 +2,7 @@
 /**
  * Plugin Name: AI Dream & Junk Jobs
  * Description: Week 2 Task 2. Students enter, rank and explain 5 dream jobs and 5 junk jobs, then get a combined SteveGPT results screen with personality fit, requirement ticks, plot twists and a careers chat. Use shortcode [ai_junk_jobs] (alias [ai_dream_junk_jobs]).
- * Version: 7.0.0
+ * Version: 7.0.1
  * Author: MisterT9007
  */
 
@@ -13,7 +13,7 @@ require_once __DIR__ . '/includes/class-mfsd-parent-tabs.php';
 require_once __DIR__ . '/includes/class-junk-jobs-ai.php';
 
 class AI_Junk_Jobs {
-    const VERSION      = '7.0.0';
+    const VERSION      = '7.0.1';
     const TABLE        = 'mfsd_ai_junk_jobs_results';
     const GUESS_TABLE  = 'mfsd_djj_guesses';              // 7.0.0 parent guessing game (spec §16)
     const ACTION_KINDS = array( 'skill', 'explore', 'habit', 'own' );
@@ -499,9 +499,11 @@ class AI_Junk_Jobs {
         return $s === '' ? 0 : count( preg_split( '/\s+/', $s ) );
     }
 
+    /** 7.0.1: the student's first name (first_name meta, else the first word of the display name), as the style guide requires. */
     private function display_name( int $user_id ): string {
-        $u = get_userdata( $user_id );
-        return $u ? $u->display_name : 'the student';
+        $first = trim( (string) get_user_meta( $user_id, 'first_name', true ) );
+        if ( $first === '' ) { $u = get_userdata( $user_id ); $first = $u ? trim( (string) strtok( (string) $u->display_name, ' ' ) ) : ''; }
+        return $first !== '' ? $first : 'the student';
     }
 
     private function age_text( int $user_id ): string {
@@ -1104,7 +1106,7 @@ class AI_Junk_Jobs {
             $ctx .= "Personality: {$profile['name']} ({$profile['family']} family) — strengths: {$profile['strengths']}. ";
         }
         $ctx .= 'Answer career questions for a UK student aged ' . ( $age ?: '10-14' ) . '. Relate answers to their dream jobs and needs. ';
-        $ctx .= "Keep answers to 2-4 sentences. Never use personality codes, 'MBTI' or 'Myers-Briggs'.";
+        $ctx .= 'Keep answers to 2-4 sentences.';
         return mfsd_steve_chat_context( $ctx );
     }
 
@@ -1185,9 +1187,9 @@ class AI_Junk_Jobs {
             if ( isset( $jreason[ $item ] ) ) $jreason[ $item ] = self::WITHHELD_TEXT;
         }
 
-        $p  = "You are SteveGPT, Steve Sallis's coach, writing for the PARENT of {$child}" . ( $age ? ", aged {$age}" : '' ) . ". ";
+        $p  = "This is for the PARENT or carer of {$child}" . ( $age ? ", aged {$age}" : '' ) . ". "; // 7.0.1: persona lives in the chatbot instructions
         $p .= "Write in clear, warm adult language (not student language), UK English, about 300 words. ";
-        $p .= "Don't assume anything about family structure, money or circumstances. Never use personality codes, 'MBTI' or 'Myers-Briggs'.\n\n";
+        $p .= "Don't assume anything about family structure, money or circumstances.\n\n";
         $p .= "Their child has just completed Dream & Junk Jobs: 5 dream jobs and 5 jobs they would not want, with reasons.\n\n";
         $p .= "DREAM JOBS (ranked):\n";
         foreach ( self::dec( $row['dream_ranking_json'] ) as $i => $dj ) {
